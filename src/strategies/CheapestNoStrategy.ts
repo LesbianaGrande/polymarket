@@ -12,8 +12,8 @@ export class CheapestNoStrategy extends BaseStrategy {
     ];
 
     async execute(markets: MarketInfo[]): Promise<void> {
-        // Group markets by city so we can find the "cheapest NO" per city event group
-        const cityMarkets: Record<string, MarketInfo[]> = {};
+        // Group markets by Event (City/Date combo - mapped by market.id which is event ID) so we can find the "cheapest NO" per specific event
+        const eventMarkets: Record<string, MarketInfo[]> = {};
 
         for (const market of markets) {
             const titleLower = market.title.toLowerCase();
@@ -36,15 +36,15 @@ export class CheapestNoStrategy extends BaseStrategy {
                 continue;
             }
 
-            if (!cityMarkets[matchedCity]) {
-                cityMarkets[matchedCity] = [];
+            if (!eventMarkets[market.id]) {
+                eventMarkets[market.id] = [];
             }
-            cityMarkets[matchedCity].push(market);
+            eventMarkets[market.id].push(market);
         }
 
-        // For each eligible city, evaluate all its markets to find the absolute cheapest "NO"
-        for (const city of Object.keys(cityMarkets)) {
-            const group = cityMarkets[city];
+        // For each eligible event (City + Date), evaluate all its band options to find the absolute cheapest "NO"
+        for (const eventId of Object.keys(eventMarkets)) {
+            const group = eventMarkets[eventId];
             let cheapestMarket: MarketInfo | null = null;
             let cheapestTokenId: string = '';
             let cheapestPrice = Infinity;
@@ -75,8 +75,13 @@ export class CheapestNoStrategy extends BaseStrategy {
             }
 
             if (cheapestMarket && cheapestTokenId !== '') {
-                // We found the cheapest NO for this city's group of markets.
-                console.log(`[Cheapest NO] Found cheapest market for ${city}: ${cheapestMarket.title} at $${cheapestPrice}`);
+                // Determine the city name for logging purposes
+                let cityLog = "unknown";
+                for (const c of Object.keys(CITY_COORDINATES)) {
+                    if (cheapestMarket.title.toLowerCase().includes(c)) cityLog = c;
+                }
+
+                console.log(`[Cheapest NO] Found cheapest market for ${cityLog} event: ${cheapestMarket.title} at $${cheapestPrice}`);
                 await this.executePaperTrade(cheapestMarket, cheapestTokenId, 'NO', 100, undefined, markets);
             }
         }
