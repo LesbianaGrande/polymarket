@@ -31,7 +31,7 @@ export class PolymarketService {
     static async getActiveTemperatureMarkets(): Promise<MarketInfo[]> {
         try {
             // Polymarket often uses 'weather' tags or category, but we fetch active events
-            const res = await axios.get(`${GAMMA_API}/events?active=true&closed=false&limit=100`);
+            const res = await axios.get(`${GAMMA_API}/events?active=true&closed=false&limit=1000`);
             const events = res.data || [];
             
             const tempMarkets: MarketInfo[] = [];
