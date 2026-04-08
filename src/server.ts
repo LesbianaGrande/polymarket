@@ -1,5 +1,6 @@
 import express from 'express';
 import { getWallets, getAllTrades, getOpenTrades } from './db/database';
+import { BotManager } from './bot/BotManager';
 
 export const app = express();
 const port = process.env.PORT || 3000;
@@ -164,6 +165,11 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
+        <div style="text-align: center; margin-bottom: 30px;">
+            <button onclick="fetch('/api/run-cycle', {method: 'POST'}).then(r => r.json()).then(d => { alert(d.message); window.location.reload(); }).catch(e => alert('Error: ' + e))" style="padding: 12px 24px; background: var(--primary); border: none; border-radius: 8px; color: #fff; cursor: pointer; font-weight: bold; margin-right: 15px; font-size: 1rem; transition: opacity 0.2s;">⚡ Force Trade Cycle</button>
+            <button onclick="fetch('/api/resolve', {method: 'POST'}).then(r => r.json()).then(d => { alert(d.message); window.location.reload(); }).catch(e => alert('Error: ' + e))" style="padding: 12px 24px; background: var(--accent); border: none; border-radius: 8px; color: #fff; cursor: pointer; font-weight: bold; font-size: 1rem; transition: opacity 0.2s;">🔄 Force Resolution Cycle</button>
+        </div>
+
         <h2 style="color: var(--text-muted); border-bottom: 1px solid #334155; padding-bottom: 10px;">Wallets / Strategies</h2>
         <div class="grid">
             ${walletsHtml}
@@ -192,7 +198,25 @@ app.get('/', (req, res) => {
     res.send(html);
 });
 
-export function startServer() {
+export function startServer(bot: BotManager) {
+    app.post('/api/run-cycle', async (req, res) => {
+        try {
+            await bot.runCycle();
+            res.status(200).json({ success: true, message: 'Trade cycle executed manually.' });
+        } catch (e: any) {
+            res.status(500).json({ success: false, error: e.message });
+        }
+    });
+
+    app.post('/api/resolve', async (req, res) => {
+        try {
+            await bot.resolveTrades();
+            res.status(200).json({ success: true, message: 'Resolution cycle executed manually.' });
+        } catch (e: any) {
+            res.status(500).json({ success: false, error: e.message });
+        }
+    });
+
     app.listen(port, () => {
         console.log(`[Dashboard] Server running on port ${port}`);
     });

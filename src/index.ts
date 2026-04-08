@@ -7,10 +7,9 @@ async function bootstrap() {
     console.log('[App] Initializing database...');
     initDatabase();
     
-    console.log('[App] Starting dashboard server...');
-    startServer();
-
     const bot = new BotManager();
+    console.log('[App] Starting dashboard server...');
+    startServer(bot);
 
     // Cron syntax for 3x a day (e.g., 00:00, 08:00, 16:00 UTC)
     // For Railway, we can just use "0 0,8,16 * * *"
