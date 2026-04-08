@@ -42,10 +42,10 @@ export class PolymarketService {
 
         try {
             const slugPromises = [];
-            // Check today and up to 7 days in the future
+            // Only check tomorrow (+1) and next day (+2) per user request
             for (const city of cities) {
                 const citySlug = city.replace(/\s+/g, '-');
-                for (let offset = 0; offset <= 7; offset++) {
+                for (const offset of [1, 2]) {
                     const d = new Date();
                     d.setUTCDate(d.getUTCDate() + offset);
                     const monthInfo = months[d.getUTCMonth()];
@@ -65,6 +65,8 @@ export class PolymarketService {
             // Execute all probes. Takes ~2-5s but guarantees 100% discovery rate skipping volume pagination
             const responses = await Promise.all(slugPromises);
 
+            const exampleTitles = new Set<string>();
+
             for (const res of responses) {
                 if (res && res.data && res.data.length > 0) {
                     // Slug returns array of matching events, usually length 1
@@ -75,8 +77,10 @@ export class PolymarketService {
                                 let parsedTokens = [];
                                 try { parsedTokens = JSON.parse(market.clobTokenIds || '[]'); } catch (e) {}
 
-                                let parsedOutcomes = [];
+                                let parsedOutcomes: any[] = [];
                                 try { parsedOutcomes = JSON.parse(market.outcomes || '[]'); } catch (e) {}
+
+                                exampleTitles.add(event.title);
 
                                 tempMarkets.push({
                                     id: event.id,
@@ -94,9 +98,15 @@ export class PolymarketService {
                     }
                 }
             }
+
+            if (exampleTitles.size > 0) {
+                const examples = Array.from(exampleTitles).slice(0, 3);
+                console.log(`[PolymarketService] Example markets grabbed:\n - ${examples.join('\n - ')}`);
+            }
+
             return tempMarkets;
-        } catch (error) {
-            console.error('Error fetching Polymarket markets by slug:', error);
+        } catch (error: any) {
+            console.error('[PolymarketService] Error fetching Polymarket markets by slug:', error.message || error);
             return [];
         }
     }

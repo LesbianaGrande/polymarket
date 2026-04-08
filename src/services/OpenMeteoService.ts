@@ -59,8 +59,8 @@ export class OpenMeteoService {
                 };
             }
             return null;
-        } catch (err) {
-            console.error(`[OpenMeteo] Error fetching forecast for ${cityName}:`, err);
+        } catch (err: any) {
+            console.error(`[OpenMeteo] Error fetching forecast for ${cityName}:`, err.message || err);
             return null;
         }
     }
