@@ -10,7 +10,7 @@ export abstract class BaseStrategy {
     abstract execute(markets: MarketInfo[]): Promise<void>;
 
     // Up to 2 options per market per day. 100 shares each trade
-    protected async executePaperTrade(market: MarketInfo, tokenId: string, type: 'YES' | 'NO', amount: number = 100) {
+    protected async executePaperTrade(market: MarketInfo, tokenId: string, type: 'YES' | 'NO', amount: number = 100, forecastTemp?: string) {
         // limit logic (only 2 options per market per day)
         const openTrades = getOpenTrades();
         
@@ -88,6 +88,7 @@ export abstract class BaseStrategy {
             walletId: this.walletId,
             marketId: market.marketId,
             marketTitle: market.question,
+            forecastTemp: forecastTemp,
             tokenId: tokenId,
             type: type,
             price: averagePrice,

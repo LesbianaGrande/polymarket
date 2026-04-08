@@ -44,28 +44,40 @@ export class OpenMeteoService {
         }
 
         try {
-            // Polymarket weather can be in either F or C depending on the region.
             const unit = isCelsius ? 'celsius' : 'fahrenheit';
             
             // Execute primary request using Polymarket's expected ECMWF IFS 0.25 model
             let url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}&models=ecmwf_ifs025`;
             
-            let res = await axios.get(url);
-            let daily = res.data.daily;
+            let res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+            
+            if (!res.ok) {
+                if (res.status === 400 || res.status === 429) {
+                    console.log(`[OpenMeteo] Primary request hit ${res.status} for ${cityKey}, falling back to "best_match"...`);
+                    url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
+                    res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+                } else {
+                     throw new Error(`HTTP error! status: ${res.status}`);
+                }
+            }
+            
+            let data = await res.json();
+            let daily = data.daily;
 
             // If the ECMWF model array misses the horizon (returns nulls), fall back to best_match
             if (!daily || !daily.temperature_2m_max || daily.temperature_2m_max.length < 3 || daily.temperature_2m_max[1] === null || daily.temperature_2m_max[2] === null) {
                 console.log(`[OpenMeteo] ECMWF horizon miss for ${cityKey}, falling back to "best_match"...`);
                 let fallbackUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
-                res = await axios.get(fallbackUrl);
-                daily = res.data.daily;
+                res = await fetch(fallbackUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+                data = await res.json();
+                daily = data.daily;
             }
 
             if (daily && daily.temperature_2m_max && daily.temperature_2m_max.length >= 3 && daily.temperature_2m_max[1] !== null) {
-                // index 0 = today, index 1 = tomorrow, index 2 = next day
+                // Round exactly as mathematically correct (0.5+ rounds up) to prevent fraction edge case drops
                 return {
-                    tomorrow: daily.temperature_2m_max[1],
-                    nextDay: daily.temperature_2m_max[2]
+                    tomorrow: Math.round(daily.temperature_2m_max[1]),
+                    nextDay: Math.round(daily.temperature_2m_max[2])
                 };
             }
             return null;
