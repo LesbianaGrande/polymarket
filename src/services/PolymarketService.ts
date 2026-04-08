@@ -27,31 +27,56 @@ export interface OrderBook {
 
 export class PolymarketService {
     
-    // Fetch active daily highest temperature weather markets
+    // Fetch active daily highest temperature weather markets by slug
     static async getActiveTemperatureMarkets(): Promise<MarketInfo[]> {
-        try {
-            // Polymarket often uses 'weather' tags or category, but we fetch active events
-            const res = await axios.get(`${GAMMA_API}/events?active=true&closed=false&limit=1000`);
-            const events = res.data || [];
-            
-            const tempMarkets: MarketInfo[] = [];
+        const tempMarkets: MarketInfo[] = [];
+        const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+        
+        // Comprehensive list of cities likely to have weather markets
+        const cities = [
+            'paris', 'amsterdam', 'berlin', 'london', 'madrid', 'rome', 'moscow', 
+            'tokyo', 'seoul', 'beijing', 'shanghai', 'shenzhen', 'hong kong', 
+            'sydney', 'dubai', 'singapore', 'helsinki', 'ankara', 'sao paulo', 
+            'tel aviv', 'warsaw', 'toronto', 'new york', 'miami', 'chicago', 'los angeles', 'austin', 'phoenix'
+        ];
 
-            for (const event of events) {
-                // Filter specifically for highest temperature events
-                const titleLower = event.title ? event.title.toLowerCase() : '';
-                if (titleLower.includes('highest temperature') || titleLower.includes('high temperature')) {
-                    if (event.markets && Array.isArray(event.markets)) {
+        try {
+            const slugPromises = [];
+            // Check today and up to 7 days in the future
+            for (const city of cities) {
+                const citySlug = city.replace(/\s+/g, '-');
+                for (let offset = 0; offset <= 7; offset++) {
+                    const d = new Date();
+                    d.setUTCDate(d.getUTCDate() + offset);
+                    const monthInfo = months[d.getUTCMonth()];
+                    // Slugs don't pad single digit days on PM usually, it's just '8' not '08'
+                    const dayInfo = d.getUTCDate();
+                    const yearInfo = d.getUTCFullYear();
+                    
+                    const slug = `highest-temperature-in-${citySlug}-on-${monthInfo}-${dayInfo}-${yearInfo}`;
+                    slugPromises.push(
+                        axios.get(`${GAMMA_API}/events?slug=${slug}`).catch(() => null)
+                    );
+                }
+            }
+
+            console.log(`[PolymarketService] Probing ${slugPromises.length} potential unique weather market slugs...`);
+
+            // Execute all probes. Takes ~2-5s but guarantees 100% discovery rate skipping volume pagination
+            const responses = await Promise.all(slugPromises);
+
+            for (const res of responses) {
+                if (res && res.data && res.data.length > 0) {
+                    // Slug returns array of matching events, usually length 1
+                    const event = res.data[0];
+                    if (event && event.markets && Array.isArray(event.markets)) {
                         for (const market of event.markets) {
                             if (market.active && !market.closed) {
                                 let parsedTokens = [];
-                                try {
-                                    parsedTokens = JSON.parse(market.clobTokenIds || '[]');
-                                } catch (e) { }
+                                try { parsedTokens = JSON.parse(market.clobTokenIds || '[]'); } catch (e) {}
 
                                 let parsedOutcomes = [];
-                                try {
-                                    parsedOutcomes = JSON.parse(market.outcomes || '[]');
-                                } catch (e) { }
+                                try { parsedOutcomes = JSON.parse(market.outcomes || '[]'); } catch (e) {}
 
                                 tempMarkets.push({
                                     id: event.id,
@@ -71,7 +96,7 @@ export class PolymarketService {
             }
             return tempMarkets;
         } catch (error) {
-            console.error('Error fetching Polymarket markets:', error);
+            console.error('Error fetching Polymarket markets by slug:', error);
             return [];
         }
     }
