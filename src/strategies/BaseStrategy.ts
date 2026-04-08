@@ -44,8 +44,9 @@ export abstract class BaseStrategy {
         let totalCost = 0;
         let averagePrice = 0;
 
-        // Traverse the order book asks
-        for (const ask of orderbook.asks) {
+        // Traverse the order book asks (sorted cheapest to most expensive)
+        const sortedAsks = [...orderbook.asks].sort((a: any, b: any) => parseFloat(a.price) - parseFloat(b.price));
+        for (const ask of sortedAsks) {
             const price = parseFloat(ask.price);
             const size = parseFloat(ask.size);
 

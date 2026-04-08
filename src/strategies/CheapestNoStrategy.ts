@@ -63,7 +63,8 @@ export class CheapestNoStrategy extends BaseStrategy {
                     const orderbook = await PolymarketService.getOrderBook(tokenId);
                     
                     if (orderbook && orderbook.asks && orderbook.asks.length > 0) {
-                        const bestAsk = parseFloat(orderbook.asks[0].price);
+                        // Polymarket orderbook asks might not be guaranteed sorted lowest-to-highest
+                        const bestAsk = Math.min(...orderbook.asks.map((a: any) => parseFloat(a.price)));
                         if (bestAsk < cheapestPrice) {
                             cheapestPrice = bestAsk;
                             cheapestMarket = market;
