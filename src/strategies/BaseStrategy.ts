@@ -73,6 +73,12 @@ export abstract class BaseStrategy {
 
         averagePrice = totalCost / amount;
 
+        // Ensure we don't buy if the option is too expensive (> $0.92) per user request
+        if (averagePrice > 0.92) {
+            console.log(`[${this.strategyName}] Price too high ($${averagePrice.toFixed(3)}) for ${market.title}. Skipping.`);
+            return;
+        }
+
         // Execute DB changes
         const tradeId = uuidv4();
         updateWalletBalance(this.walletId, balance - totalCost);
@@ -80,7 +86,7 @@ export abstract class BaseStrategy {
             id: tradeId,
             walletId: this.walletId,
             marketId: market.marketId,
-            marketTitle: market.title,
+            marketTitle: market.question,
             tokenId: tokenId,
             type: type,
             price: averagePrice,

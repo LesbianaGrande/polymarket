@@ -1,7 +1,11 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 
-const dbPath = path.resolve(__dirname, '../../bot.db');
+let dbPath = path.resolve(__dirname, '../../bot.db');
+if (fs.existsSync('/data')) {
+    dbPath = '/data/bot.db';
+}
 const db = new Database(dbPath, { verbose: console.log });
 
 export function initDatabase() {

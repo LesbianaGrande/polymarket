@@ -56,7 +56,7 @@ app.get('/', (req, res) => {
         const statusColor = t.status === 'OPEN' ? '#ffb86c' : (t.status === 'WON' ? '#50fa7b' : '#ff5555');
         tradesHtml += `
             <tr>
-                <td>${new Date(t.createdAt).toLocaleString()}</td>
+                <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
                 <td><span class="badge" style="background: rgba(255,255,255,0.1); font-weight: normal;">${t.walletId}</span></td>
                 <td><strong style="color: #fff; font-size:1.05rem;">${titleText}</strong></td>
                 <td><span class="badge ${t.type.toLowerCase()}">${t.type}</span></td>
@@ -331,7 +331,7 @@ app.get('/', (req, res) => {
 
                 const labels = filtered.map(h => {
                     const d = new Date(h.recordedAt);
-                    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    return d.toLocaleDateString('en-US', {timeZone: 'America/New_York'}) + ' ' + d.toLocaleTimeString('en-US', {timeZone: 'America/New_York', hour: '2-digit', minute:'2-digit'}) + ' ET';
                 });
                 const data = filtered.map(h => h.balance);
 
