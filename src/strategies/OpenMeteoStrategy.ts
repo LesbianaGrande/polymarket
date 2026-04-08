@@ -10,11 +10,13 @@ export class OpenMeteoStrategy extends BaseStrategy {
     private excludedCities = ['london', 'seoul', 'beijing', 'shanghai', 'shenzhen'];
 
     async execute(markets: MarketInfo[]): Promise<void> {
+        const forecastCache: Record<string, { tomorrow: number, nextDay: number } | null> = {};
+
         for (const market of markets) {
             // Find which city this market relates to
             const titleLower = market.title.toLowerCase();
             let matchedCity: string | null = null;
-
+            
             for (const city of Object.keys(CITY_COORDINATES)) {
                 if (titleLower.includes(city)) {
                     matchedCity = city;
@@ -34,14 +36,19 @@ export class OpenMeteoStrategy extends BaseStrategy {
             }
 
             // Extract the band "X" from the question
-            // E.g. "Will the highest temperature in Paris on April 8 be 65°F or higher?"
             const tempMatch = market.question.match(/(\d+)\s*°?[FC]/i);
             if (!tempMatch) continue;
 
             const bandTemp = parseFloat(tempMatch[1]);
 
-            // Get the forecast from OpenMeteo
-            const forecast = await OpenMeteoService.getForecastedHighs(matchedCity);
+            // Get the forecast from OpenMeteo (use cache to avoid 429 rate limits)
+            if (forecastCache[matchedCity] === undefined) {
+                // To be extra safe against burst limits, add a tiny sleep
+                await new Promise(r => setTimeout(r, 200));
+                forecastCache[matchedCity] = await OpenMeteoService.getForecastedHighs(matchedCity);
+            }
+            
+            const forecast = forecastCache[matchedCity];
             if (!forecast) continue;
 
             // Determine if the market applies to tomorrow or next day
