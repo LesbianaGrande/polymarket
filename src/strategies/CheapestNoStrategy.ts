@@ -31,7 +31,8 @@ export class CheapestNoStrategy extends BaseStrategy {
             }
 
             const timezone = CITY_COORDINATES[matchedCity].timezone;
-            if (!this.isTomorrowOrNextDay(market.title, timezone) && !this.isTomorrowOrNextDay(market.question, timezone)) {
+            if (!this.isTomorrow(market.title, timezone) && !this.isNextDay(market.title, timezone) &&
+                !this.isTomorrow(market.question, timezone) && !this.isNextDay(market.question, timezone)) {
                 continue;
             }
 

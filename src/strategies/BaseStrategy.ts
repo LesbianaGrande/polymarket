@@ -107,15 +107,34 @@ export abstract class BaseStrategy {
         const tomorrow = new Date(tzDate); tomorrow.setDate(tzDay + 1);
         const nextDay = new Date(tzDate); nextDay.setDate(tzDay + 2);
 
-        // Simple formatting check, e.g. "April 8" or "Apr 8"
-        const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-        const tomorrowStr = `${months[tomorrow.getMonth()]} ${tomorrow.getDate()}`;
-        const nextDayStr = `${months[nextDay.getMonth()]} ${nextDay.getDate()}`;
+        // Simple formatting check, e.g. "April 8", Poly uses full month names!
+        const fullMonths = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+        const tomorrowStr = `${fullMonths[tomorrow.getMonth()]} ${tomorrow.getDate()}`;
+        const nextDayStr = `${fullMonths[nextDay.getMonth()]} ${nextDay.getDate()}`;
 
         if (questionLower.includes(tomorrowStr) || questionLower.includes(nextDayStr)) {
             return true;
         }
 
         return false; // If not explicitly today/tomorrow matched
+    }
+
+    protected isTomorrow(questionOrTitle: string, userTimezone: string = 'UTC'): boolean {
+        const questionLower = questionOrTitle.toLowerCase();
+        if (questionLower.includes('tomorrow')) return true;
+        const tzDate = new Date(new Date().toLocaleString("en-US", {timeZone: userTimezone}));
+        const tomorrow = new Date(tzDate); tomorrow.setDate(tzDate.getDate() + 1);
+        const fullMonths = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+        const tomorrowStr = `${fullMonths[tomorrow.getMonth()]} ${tomorrow.getDate()}`;
+        return questionLower.includes(tomorrowStr);
+    }
+
+    protected isNextDay(questionOrTitle: string, userTimezone: string = 'UTC'): boolean {
+        const questionLower = questionOrTitle.toLowerCase();
+        const tzDate = new Date(new Date().toLocaleString("en-US", {timeZone: userTimezone}));
+        const nextDay = new Date(tzDate); nextDay.setDate(tzDate.getDate() + 2);
+        const fullMonths = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+        const nextDayStr = `${fullMonths[nextDay.getMonth()]} ${nextDay.getDate()}`;
+        return questionLower.includes(nextDayStr) || questionLower.includes('next day');
     }
 }

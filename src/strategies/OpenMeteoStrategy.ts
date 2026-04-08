@@ -28,7 +28,8 @@ export class OpenMeteoStrategy extends BaseStrategy {
 
             // Ensure it's for "tomorrow" or "next day"
             const timezone = CITY_COORDINATES[matchedCity].timezone;
-            if (!this.isTomorrowOrNextDay(market.title, timezone) && !this.isTomorrowOrNextDay(market.question, timezone)) {
+            if (!this.isTomorrow(market.title, timezone) && !this.isNextDay(market.title, timezone) &&
+                !this.isTomorrow(market.question, timezone) && !this.isNextDay(market.question, timezone)) {
                 continue;
             }
 
@@ -48,9 +49,8 @@ export class OpenMeteoStrategy extends BaseStrategy {
             // For safety, let's see if the forecasted values are within 2 degrees of `bandTemp` for either day.
             let relevantForecast: number;
             
-            // Hacky: distinguish tomorrow vs next-day by whether 'tomorrow' is literally in string, 
-            // or by looking at dates. For MVP, choose tomorrow if "tomorrow" is present, else next day if "next day".
-            if (market.question.toLowerCase().includes('next day')) {
+            // Use the explicit helpers that check the dates in the question
+            if (this.isNextDay(market.question, timezone) || this.isNextDay(market.title, timezone)) {
                 relevantForecast = forecast.nextDay;
             } else {
                 // assume tomorrow
