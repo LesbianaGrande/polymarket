@@ -31,9 +31,11 @@ export function initDatabase() {
 
     try {
         db.exec("ALTER TABLE trades ADD COLUMN marketTitle TEXT DEFAULT 'Unknown Title'");
-    } catch (e) {
-        // Ignored if column already exists
-    }
+    } catch (e) {}
+
+    try {
+        db.exec("ALTER TABLE trades ADD COLUMN forecastTemp TEXT DEFAULT ''");
+    } catch (e) {}
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS wallet_history (
@@ -79,12 +81,16 @@ export function getWalletHistory() {
     return db.prepare('SELECT * FROM wallet_history ORDER BY recordedAt ASC').all() as any[];
 }
 
-export function saveTrade(trade: { id: string, walletId: string, marketId: string, marketTitle: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
+export function saveTrade(trade: { id: string, walletId: string, marketId: string, marketTitle: string, forecastTemp?: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
     const stmt = db.prepare(`
-        INSERT INTO trades (id, walletId, marketId, marketTitle, tokenId, type, price, amount, status)
-        VALUES (@id, @walletId, @marketId, @marketTitle, @tokenId, @type, @price, @amount, @status)
+        INSERT INTO trades (id, walletId, marketId, marketTitle, forecastTemp, tokenId, type, price, amount, status)
+        VALUES (@id, @walletId, @marketId, @marketTitle, @forecastTemp, @tokenId, @type, @price, @amount, @status)
     `);
-    stmt.run(trade);
+    
+    stmt.run({
+        ...trade,
+        forecastTemp: trade.forecastTemp || ''
+    });
 }
 
 export function getOpenTrades() {

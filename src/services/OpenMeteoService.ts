@@ -35,7 +35,7 @@ export class OpenMeteoService {
      * Gets the forecasted highest temperature for tomorrow and the next day.
      * We specify the timezone so "tomorrow" aligns with the local day of the city.
      */
-    static async getForecastedHighs(cityName: string): Promise<{ tomorrow: number, nextDay: number } | null> {
+    static async getForecastedHighs(cityName: string, isCelsius: boolean = false): Promise<{ tomorrow: number, nextDay: number } | null> {
         const cityKey = cityName.toLowerCase();
         const coords = CITY_COORDINATES[cityKey];
         if (!coords) {
@@ -44,9 +44,9 @@ export class OpenMeteoService {
         }
 
         try {
-            // Fetch temperature in Fahrenheit, as Polymarket weather is often listed in °F.
-            // (If the PM ticket says °C we'd need to fetch °C, but OpenMeteo allows choosing).
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=fahrenheit&timezone=${coords.timezone}`;
+            // Polymarket weather can be in either F or C depending on the region.
+            const unit = isCelsius ? 'celsius' : 'fahrenheit';
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
             
             const res = await axios.get(url);
             const daily = res.data.daily;

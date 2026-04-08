@@ -40,15 +40,17 @@ export class OpenMeteoStrategy extends BaseStrategy {
             if (!tempMatch) continue;
 
             const bandTemp = parseFloat(tempMatch[1]);
+            const isCelsius = tempMatch[0].toLowerCase().includes('c');
 
-            // Get the forecast from OpenMeteo (use cache to avoid 429 rate limits)
-            if (forecastCache[matchedCity] === undefined) {
+            // Get the forecast from OpenMeteo (use cache to avoid 429 rate limits, unique to Unit)
+            const cacheKey = `${matchedCity}-${isCelsius ? 'C' : 'F'}`;
+            if (forecastCache[cacheKey] === undefined) {
                 // To be extra safe against burst limits, add a tiny sleep
                 await new Promise(r => setTimeout(r, 200));
-                forecastCache[matchedCity] = await OpenMeteoService.getForecastedHighs(matchedCity);
+                forecastCache[cacheKey] = await OpenMeteoService.getForecastedHighs(matchedCity, isCelsius);
             }
             
-            const forecast = forecastCache[matchedCity];
+            const forecast = forecastCache[cacheKey];
             if (!forecast) continue;
 
             // Determine if the market applies to tomorrow or next day
@@ -93,7 +95,8 @@ export class OpenMeteoStrategy extends BaseStrategy {
 
                 if (noIndex !== -1 && market.clobTokenIds.length > noIndex) {
                     const tokenId = market.clobTokenIds[noIndex];
-                    await this.executePaperTrade(market, tokenId, 'NO');
+                    const mappedTemp = `${relevantForecast.toFixed(1)}°${isCelsius ? 'C' : 'F'}`;
+                    await this.executePaperTrade(market, tokenId, 'NO', 100, mappedTemp);
                 }
             }
         }

@@ -49,16 +49,18 @@ app.get('/', (req, res) => {
         `;
     }
 
-    let tradesHtml = '';
-    for (const t of allTrades) {
-        // Safe check for marketTitle backward compat
+    const trades1 = allTrades.filter(t => t.walletId === 'strategy-1');
+    const trades2 = allTrades.filter(t => t.walletId === 'strategy-2');
+
+    function renderRow(t: any, showForecast: boolean) {
         const titleText = t.marketTitle && t.marketTitle !== 'Unknown Title' ? t.marketTitle : t.marketId;
         const statusColor = t.status === 'OPEN' ? '#ffb86c' : (t.status === 'WON' ? '#50fa7b' : '#ff5555');
-        tradesHtml += `
+        const forecastTd = showForecast ? `<td><span style="color:#f472b6; font-weight:bold;">${t.forecastTemp || 'N/A'}</span></td>` : '';
+        return `
             <tr>
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
-                <td><span class="badge" style="background: rgba(255,255,255,0.1); font-weight: normal;">${t.walletId}</span></td>
                 <td><strong style="color: #fff; font-size:1.05rem;">${titleText}</strong></td>
+                ${forecastTd}
                 <td><span class="badge ${t.type.toLowerCase()}">${t.type}</span></td>
                 <td>${t.amount}</td>
                 <td>$${t.price.toFixed(3)}</td>
@@ -66,6 +68,9 @@ app.get('/', (req, res) => {
             </tr>
         `;
     }
+
+    let tradesHtml1 = trades1.map(t => renderRow(t, true)).join('');
+    let tradesHtml2 = trades2.map(t => renderRow(t, false)).join('');
 
     const html = `
     <!DOCTYPE html>
@@ -284,12 +289,29 @@ app.get('/', (req, res) => {
             ${walletsHtml}
         </div>
 
-        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400; margin-top: 40px;">Trade Ledger</h2>
+        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400; margin-top: 40px;">Ledger: OpenMeteo Counter-Bet</h2>
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Wallet</th>
+                    <th>Market Details</th>
+                    <th>Forecast (API)</th>
+                    <th>Type</th>
+                    <th>Shares</th>
+                    <th>Avg Price</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tradesHtml1}
+            </tbody>
+        </table>
+
+        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400; margin-top: 40px;">Ledger: Cheapest NO</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
                     <th>Market Details</th>
                     <th>Type</th>
                     <th>Shares</th>
@@ -298,7 +320,7 @@ app.get('/', (req, res) => {
                 </tr>
             </thead>
             <tbody>
-                ${tradesHtml}
+                ${tradesHtml2}
             </tbody>
         </table>
 
