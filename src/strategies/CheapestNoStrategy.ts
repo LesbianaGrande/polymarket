@@ -77,7 +77,7 @@ export class CheapestNoStrategy extends BaseStrategy {
             if (cheapestMarket && cheapestTokenId !== '') {
                 // We found the cheapest NO for this city's group of markets.
                 console.log(`[Cheapest NO] Found cheapest market for ${city}: ${cheapestMarket.title} at $${cheapestPrice}`);
-                await this.executePaperTrade(cheapestMarket, cheapestTokenId, 'NO');
+                await this.executePaperTrade(cheapestMarket, cheapestTokenId, 'NO', 100, undefined, markets);
             }
         }
     }

@@ -96,7 +96,7 @@ export class OpenMeteoStrategy extends BaseStrategy {
                 if (noIndex !== -1 && market.clobTokenIds.length > noIndex) {
                     const tokenId = market.clobTokenIds[noIndex];
                     const mappedTemp = `${relevantForecast.toFixed(1)}°${isCelsius ? 'C' : 'F'}`;
-                    await this.executePaperTrade(market, tokenId, 'NO', 100, mappedTemp);
+                    await this.executePaperTrade(market, tokenId, 'NO', 100, mappedTemp, markets);
                 }
             }
         }

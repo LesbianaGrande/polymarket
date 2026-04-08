@@ -10,17 +10,20 @@ export abstract class BaseStrategy {
     abstract execute(markets: MarketInfo[]): Promise<void>;
 
     // Up to 2 options per market per day. 100 shares each trade
-    protected async executePaperTrade(market: MarketInfo, tokenId: string, type: 'YES' | 'NO', amount: number = 100, forecastTemp?: string) {
-        // limit logic (only 2 options per market per day)
+    protected async executePaperTrade(market: MarketInfo, tokenId: string, type: 'YES' | 'NO', amount: number = 100, forecastTemp?: string, allMarkets?: MarketInfo[]) {
+        // limit logic (only 2 options per market EVENT per day)
         const openTrades = getOpenTrades();
         
-        // Filter trades for this specific market and wallet today
+        // Filter trades for this specific event and wallet today
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
+        // Find all Polymarket band IDs that belong to the same parent Event
+        const eventMarketIds = allMarkets ? allMarkets.filter(m => m.id === market.id).map(m => m.marketId) : [market.marketId];
+
         const marketTradesToday = openTrades.filter(t => 
             t.walletId === this.walletId && 
-            t.marketId === market.marketId && 
+            eventMarketIds.includes(t.marketId) && 
             new Date(t.createdAt) >= startOfDay
         );
 
