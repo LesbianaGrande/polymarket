@@ -94,7 +94,7 @@ export function saveTrade(trade: { id: string, walletId: string, marketId: strin
 }
 
 export function getOpenTrades() {
-    return db.prepare("SELECT * FROM trades WHERE status = 'OPEN'").all() as any[];
+    return db.prepare("SELECT * FROM trades WHERE status = ?").all('OPEN') as any[];
 }
 
 export function getAllTrades() {
