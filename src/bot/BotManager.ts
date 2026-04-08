@@ -2,7 +2,7 @@ import { PolymarketService } from '../services/PolymarketService';
 import { OpenMeteoStrategy } from '../strategies/OpenMeteoStrategy';
 import { CheapestNoStrategy } from '../strategies/CheapestNoStrategy';
 import { NwsStrategy } from '../strategies/NwsStrategy';
-import { getOpenTrades, updateTradeStatus } from '../db/database';
+import { getOpenTrades, updateTradeStatus, updateTradeCurrentPrice } from '../db/database';
 
 export class BotManager {
     private strategies = [
@@ -30,21 +30,30 @@ export class BotManager {
     async resolveTrades() {
         console.log(`[BotManager] Starting resolution cycle at ${new Date().toISOString()}`);
         const openTrades = getOpenTrades();
-        console.log(`[BotManager] Checking resolution for ${openTrades.length} open trades.`);
+        console.log(`[BotManager] Checking resolution ${openTrades.length} open trades.`);
 
         for (const trade of openTrades) {
             const result = await PolymarketService.checkMarketResolution(trade.marketId);
             if (result.resolved) {
-                // Determine if we won. In Gamma API, usually closed/resolved markets 
-                // have a winning outcome that we could identify, but it's tricky.
-                // For simplicity here, we assume if conditionId is present and matches logic, we'll check token ID.
-                // Or if we don't have enough data, we mark it 'CLOSED' and it waits manual payout logic.
-                // To do this perfectly requires subgraph or more data, 
-                // but we will mock a static 50% win rate or just mark CLOSED for the UI.
-                
-                // For the task, we mark it CLOSED so it moves out of OPEN state.
                 updateTradeStatus(trade.id, 'CLOSED');
                 console.log(`[BotManager] Trade ${trade.id} market resolved. Marked as CLOSED.`);
+            } else if (trade.tokenId) {
+                // Not resolved, so let's update the current price for display on dashboard
+                try {
+                    const orderbook = await PolymarketService.getOrderBook(trade.tokenId);
+                    if (orderbook) {
+                        // The bot buys at Ask (we own shares). Current value of shares to liquidate is best Bid.
+                        if (orderbook.bids && orderbook.bids.length > 0) {
+                            const bestBid = Math.max(...orderbook.bids.map((b: any) => parseFloat(b.price)));
+                            updateTradeCurrentPrice(trade.id, bestBid);
+                        } else if (orderbook.asks && orderbook.asks.length > 0) {
+                            const bestAsk = Math.min(...orderbook.asks.map((a: any) => parseFloat(a.price)));
+                            updateTradeCurrentPrice(trade.id, bestAsk); // Fallback to ask if no bids
+                        }
+                    }
+                } catch (e) {
+                    console.log(`[BotManager] Failed to update current price for ${trade.tokenId}`);
+                }
             }
         }
         console.log(`[BotManager] Resolution cycle complete.`);

@@ -72,6 +72,16 @@ app.get('/', (req, res) => {
         const statusColor = t.status === 'OPEN' ? '#f59e0b' : (t.status === 'WON' ? '#10b981' : '#ef4444');
         const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span></td>` : '';
         const cityKey = getCity(titleText);
+        
+        let pnlText = '';
+        if (t.currentPrice !== undefined && t.currentPrice !== null) {
+            const diff = t.currentPrice - t.price;
+            const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
+            pnlText = `<span style="color: ${diffColor}; font-weight: bold;">$${t.currentPrice.toFixed(3)}</span>`;
+        } else {
+            pnlText = `<span style="color: var(--text-muted);">N/A</span>`;
+        }
+
         return `
             <tr data-city="${cityKey}" class="trade-row">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
@@ -80,6 +90,7 @@ app.get('/', (req, res) => {
                 <td><span class="badge ${t.type.toLowerCase()}">${t.type}</span></td>
                 <td>${t.amount}</td>
                 <td>$${t.price.toFixed(3)}</td>
+                <td>${pnlText}</td>
                 <td><span style="color: ${statusColor}; font-weight: bold;">${t.status}</span></td>
             </tr>
         `;
@@ -364,19 +375,19 @@ app.get('/', (req, res) => {
 
         <div class="section-title">☁️ OpenMeteo Counter-Bet</div>
         <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
             <tbody id="table-strategy-1">${trades1.map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
         <div class="section-title">📉 Cheapest NO</div>
         <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
             <tbody id="table-strategy-2">${trades2.map(t => renderRow(t, false)).join('')}</tbody>
         </table>
 
         <div class="section-title">🇺🇸 NWS Forecast Bet (YES)</div>
         <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
             <tbody id="table-strategy-3">${trades3.map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 

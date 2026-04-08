@@ -37,6 +37,10 @@ export function initDatabase() {
         db.exec("ALTER TABLE trades ADD COLUMN forecastTemp TEXT DEFAULT ''");
     } catch (e) {}
 
+    try {
+        db.exec("ALTER TABLE trades ADD COLUMN currentPrice REAL DEFAULT NULL");
+    } catch (e) {}
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS wallet_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,6 +108,10 @@ export function getAllTrades() {
 
 export function updateTradeStatus(tradeId: string, status: 'WON' | 'LOST' | 'CLOSED') {
     db.prepare('UPDATE trades SET status = ? WHERE id = ?').run(status, tradeId);
+}
+
+export function updateTradeCurrentPrice(tradeId: string, currentPrice: number) {
+    db.prepare('UPDATE trades SET currentPrice = ? WHERE id = ?').run(currentPrice, tradeId);
 }
 
 export default db;
