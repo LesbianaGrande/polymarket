@@ -80,6 +80,7 @@ export abstract class BaseStrategy {
             id: tradeId,
             walletId: this.walletId,
             marketId: market.marketId,
+            marketTitle: market.title,
             tokenId: tokenId,
             type: type,
             price: averagePrice,

@@ -25,10 +25,36 @@ export function initDatabase() {
         );
     `);
 
+    try {
+        db.exec("ALTER TABLE trades ADD COLUMN marketTitle TEXT DEFAULT 'Unknown Title'");
+    } catch (e) {
+        // Ignored if column already exists
+    }
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS wallet_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            walletId TEXT NOT NULL,
+            balance REAL NOT NULL,
+            recordedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(walletId) REFERENCES wallets(id)
+        );
+    `);
+
     // Ensure wallets exist
     const ensureWallet = db.prepare('INSERT OR IGNORE INTO wallets (id, name, balance) VALUES (?, ?, ?)');
     ensureWallet.run('strategy-1', 'OpenMeteo Counter-Bet', 10000);
     ensureWallet.run('strategy-2', 'Cheapest NO', 10000);
+
+    // Seed history if empty
+    const historyCount = db.prepare('SELECT COUNT(*) as c FROM wallet_history').get() as any;
+    if (historyCount && historyCount.c === 0) {
+        const wallets = getWallets() as any[];
+        const insertHistory = db.prepare('INSERT INTO wallet_history (walletId, balance) VALUES (?, ?)');
+        for (const w of wallets) {
+            insertHistory.run(w.id, w.balance);
+        }
+    }
 }
 
 export function getWalletBalance(walletId: string): number {
@@ -38,16 +64,21 @@ export function getWalletBalance(walletId: string): number {
 
 export function updateWalletBalance(walletId: string, balance: number) {
     db.prepare('UPDATE wallets SET balance = ? WHERE id = ?').run(balance, walletId);
+    db.prepare('INSERT INTO wallet_history (walletId, balance) VALUES (?, ?)').run(walletId, balance);
 }
 
 export function getWallets() {
   return db.prepare('SELECT * FROM wallets').all();
 }
 
-export function saveTrade(trade: { id: string, walletId: string, marketId: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
+export function getWalletHistory() {
+    return db.prepare('SELECT * FROM wallet_history ORDER BY recordedAt ASC').all() as any[];
+}
+
+export function saveTrade(trade: { id: string, walletId: string, marketId: string, marketTitle: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
     const stmt = db.prepare(`
-        INSERT INTO trades (id, walletId, marketId, tokenId, type, price, amount, status)
-        VALUES (@id, @walletId, @marketId, @tokenId, @type, @price, @amount, @status)
+        INSERT INTO trades (id, walletId, marketId, marketTitle, tokenId, type, price, amount, status)
+        VALUES (@id, @walletId, @marketId, @marketTitle, @tokenId, @type, @price, @amount, @status)
     `);
     stmt.run(trade);
 }
