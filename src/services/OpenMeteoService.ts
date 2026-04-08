@@ -46,12 +46,22 @@ export class OpenMeteoService {
         try {
             // Polymarket weather can be in either F or C depending on the region.
             const unit = isCelsius ? 'celsius' : 'fahrenheit';
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
             
-            const res = await axios.get(url);
-            const daily = res.data.daily;
+            // Execute primary request using Polymarket's expected ECMWF IFS 0.25 model
+            let url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}&models=ecmwf_ifs025`;
+            
+            let res = await axios.get(url);
+            let daily = res.data.daily;
 
-            if (daily && daily.temperature_2m_max && daily.temperature_2m_max.length >= 3) {
+            // If the ECMWF model array misses the horizon (returns nulls), fall back to best_match
+            if (!daily || !daily.temperature_2m_max || daily.temperature_2m_max.length < 3 || daily.temperature_2m_max[1] === null || daily.temperature_2m_max[2] === null) {
+                console.log(`[OpenMeteo] ECMWF horizon miss for ${cityKey}, falling back to "best_match"...`);
+                let fallbackUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
+                res = await axios.get(fallbackUrl);
+                daily = res.data.daily;
+            }
+
+            if (daily && daily.temperature_2m_max && daily.temperature_2m_max.length >= 3 && daily.temperature_2m_max[1] !== null) {
                 // index 0 = today, index 1 = tomorrow, index 2 = next day
                 return {
                     tomorrow: daily.temperature_2m_max[1],
