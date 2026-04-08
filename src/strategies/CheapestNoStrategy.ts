@@ -7,8 +7,8 @@ export class CheapestNoStrategy extends BaseStrategy {
     strategyName = 'Cheapest NO';
 
     private excludedCities = [
-        'amsterdam', 'shanghai', 'helsinki', 'ankara', 
-        'sao paulo', 'shenzhen', 'tel aviv', 'warsaw', 'beijing'
+        'amsterdam', 'ankara', 'helsinki', 'mexico city', 
+        'milan', 'munich', 'panama city', 'sao paulo', 'warsaw'
     ];
 
     async execute(markets: MarketInfo[]): Promise<void> {

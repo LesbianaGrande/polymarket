@@ -48,29 +48,42 @@ app.get('/', (req, res) => {
             </div>
         `;
     }
-
     const trades1 = allTrades.filter(t => t.walletId === 'strategy-1');
     const trades2 = allTrades.filter(t => t.walletId === 'strategy-2');
+    const trades3 = allTrades.filter(t => t.walletId === 'strategy-3');
+
+    // List of cities for dropdown (dynamically deduced or explicit)
+    const cities = ['paris', 'amsterdam', 'berlin', 'london', 'madrid', 'rome', 'moscow', 'tokyo', 'seoul', 'beijing', 
+    'shanghai', 'shenzhen', 'hong kong', 'sydney', 'dubai', 'singapore', 'helsinki', 'ankara', 'sao paulo', 'tel aviv', 
+    'warsaw', 'toronto', 'new york', 'miami', 'chicago', 'los angeles', 'austin', 'phoenix', 'washington', 'philadelphia', 
+    'mexico city', 'milan', 'munich', 'panama city'];
+
+    function getCity(title: string) {
+        if (!title) return 'other';
+        const t = title.toLowerCase();
+        for (const c of cities) {
+            if (t.includes(c)) return c;
+        }
+        return 'other';
+    }
 
     function renderRow(t: any, showForecast: boolean) {
         const titleText = t.marketTitle && t.marketTitle !== 'Unknown Title' ? t.marketTitle : t.marketId;
-        const statusColor = t.status === 'OPEN' ? '#ffb86c' : (t.status === 'WON' ? '#50fa7b' : '#ff5555');
-        const forecastTd = showForecast ? `<td><span style="color:#f472b6; font-weight:bold;">${t.forecastTemp || 'N/A'}</span></td>` : '';
+        const statusColor = t.status === 'OPEN' ? '#f59e0b' : (t.status === 'WON' ? '#10b981' : '#ef4444');
+        const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span></td>` : '';
+        const cityKey = getCity(titleText);
         return `
-            <tr>
+            <tr data-city="${cityKey}" class="trade-row">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
-                <td><strong style="color: #fff; font-size:1.05rem;">${titleText}</strong></td>
+                <td><strong style="color: #475569; font-size:1.05rem;">${titleText}</strong></td>
                 ${forecastTd}
                 <td><span class="badge ${t.type.toLowerCase()}">${t.type}</span></td>
                 <td>${t.amount}</td>
                 <td>$${t.price.toFixed(3)}</td>
-                <td><span style="color: ${statusColor}; font-weight: bold; text-shadow: 0 0 10px ${statusColor}40;">${t.status}</span></td>
+                <td><span style="color: ${statusColor}; font-weight: bold;">${t.status}</span></td>
             </tr>
         `;
     }
-
-    let tradesHtml1 = trades1.map(t => renderRow(t, true)).join('');
-    let tradesHtml2 = trades2.map(t => renderRow(t, false)).join('');
 
     const html = `
     <!DOCTYPE html>
@@ -79,60 +92,82 @@ app.get('/', (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Polymarket Weather Bot</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
             :root {
-                --bg: #09090b;
-                --surface: rgba(24, 24, 27, 0.6);
-                --border: rgba(255, 255, 255, 0.1);
-                --primary: #3b82f6;
-                --primary-glow: rgba(59, 130, 246, 0.5);
-                --accent: #ec4899;
-                --accent-glow: rgba(236, 72, 153, 0.5);
-                --text: #f8fafc;
-                --text-muted: #94a3b8;
+                --bg: #e8f7f0;
+                --surface: rgba(255, 255, 255, 0.85);
+                --border: #b2ebd1;
+                --primary: #4ade80;
+                --primary-glow: rgba(74, 222, 128, 0.4);
+                --accent: #f472b6;
+                --accent-glow: rgba(244, 114, 182, 0.4);
+                --text: #334155;
+                --text-muted: #64748b;
             }
             body {
                 margin: 0;
-                font-family: 'Inter', sans-serif;
+                font-family: 'Nunito', sans-serif;
                 background-color: var(--bg);
                 color: var(--text);
                 padding: 40px;
                 background-image: 
-                    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-                    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
+                    radial-gradient(at 0% 0%, rgba(244, 114, 182, 0.1) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(74, 222, 128, 0.15) 0px, transparent 50%);
                 background-attachment: fixed;
             }
             .glass {
                 background: var(--surface);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                border: 1px solid var(--border);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 2px solid var(--border);
             }
             header {
                 text-align: center;
-                margin-bottom: 50px;
-                position: relative;
+                margin-bottom: 30px;
             }
             h1 {
                 font-size: 3.5rem;
-                background: linear-gradient(to right, #60a5fa, #f472b6);
+                background: linear-gradient(to right, #2dd4bf, #f472b6);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 margin: 0 0 10px 0;
                 letter-spacing: -1px;
+                font-weight: 800;
+            }
+            .controls {
+                text-align: center;
+                margin-bottom: 40px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            select {
+                padding: 12px 24px;
+                border-radius: 20px;
+                border: 2px solid var(--accent);
+                font-size: 1.1rem;
+                font-family: 'Nunito', sans-serif;
+                font-weight: 600;
+                color: var(--text);
+                background: #fff;
+                outline: none;
+                cursor: pointer;
+                box-shadow: 0 4px 15px var(--accent-glow);
+                appearance: none;
             }
             .grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 25px;
                 margin-bottom: 40px;
             }
             .card {
                 padding: 30px;
-                border-radius: 24px;
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                border-radius: 30px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
             .card:hover {
@@ -140,22 +175,21 @@ app.get('/', (req, res) => {
             }
             .card h3 {
                 margin-top: 0;
-                color: #e2e8f0;
-                font-size: 1.5rem;
+                color: var(--accent);
+                font-size: 1.6rem;
             }
             .highlight {
                 font-size: 2.2rem;
                 font-weight: 800;
-                color: #fff;
-                text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+                color: #0d9488;
             }
             code {
-                background: rgba(0,0,0,0.3);
+                background: #f1f5f9;
                 padding: 6px 10px;
-                border-radius: 8px;
+                border-radius: 12px;
                 color: var(--text-muted);
                 font-size: 0.85rem;
-                border: 1px solid var(--border);
+                border: 1px solid #e2e8f0;
             }
             .chart-toggles {
                 margin-top: 15px;
@@ -166,162 +200,184 @@ app.get('/', (req, res) => {
             }
             .chart-toggles button {
                 background: transparent;
-                border: 1px solid var(--border);
+                border: 2px solid var(--border);
                 color: var(--text-muted);
                 padding: 4px 10px;
-                border-radius: 6px;
+                border-radius: 12px;
                 cursor: pointer;
                 font-size: 0.8rem;
+                font-weight: 700;
                 transition: all 0.2s;
             }
             .chart-toggles button:hover, .chart-toggles button.active {
-                background: var(--primary);
+                background: var(--accent);
                 color: white;
-                border-color: var(--primary);
-                box-shadow: 0 0 10px var(--primary-glow);
+                border-color: var(--accent);
+                box-shadow: 0 0 10px var(--accent-glow);
+            }
+            .section-title {
+                color: #0f766e;
+                margin-bottom: 20px;
+                font-weight: 800;
+                font-size: 1.5rem;
+                margin-top: 40px;
+                background: var(--surface);
+                display: inline-block;
+                padding: 10px 20px;
+                border-radius: 20px;
+                border: 2px solid var(--border);
             }
             table {
                 width: 100%;
                 border-collapse: separate;
                 border-spacing: 0;
                 background: var(--surface);
-                border-radius: 16px;
+                border-radius: 24px;
                 overflow: hidden;
-                border: 1px solid var(--border);
-                backdrop-filter: blur(16px);
+                border: 2px solid var(--border);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
             }
             th, td {
                 padding: 20px;
                 text-align: left;
-                border-bottom: 1px solid var(--border);
+                border-bottom: 1px solid #e2e8f0;
             }
             th {
-                background-color: rgba(0,0,0,0.2);
-                font-weight: 600;
+                background-color: #f8fafc;
+                font-weight: 700;
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 font-size: 0.85rem;
                 color: var(--text-muted);
             }
             tr:last-child td { border-bottom: none; }
-            tr:hover td { background-color: rgba(255,255,255,0.02); }
+            tr:hover td { background-color: #f1f5f9; }
             
             .badge {
-                padding: 4px 12px;
+                padding: 6px 14px;
                 border-radius: 20px;
-                font-size: 0.8rem;
+                font-size: 0.85rem;
                 font-weight: 800;
                 display: inline-block;
             }
-            .badge.yes { background: rgba(80, 250, 123, 0.1); color: #50fa7b; border: 1px solid #50fa7b; }
-            .badge.no { background: rgba(255, 85, 85, 0.1); color: #ff5555; border: 1px solid #ff5555; }
+            .badge.yes { background: #dcfce7; color: #16a34a; border: 2px solid #bbf7d0; }
+            .badge.no { background: #fee2e2; color: #dc2626; border: 2px solid #fecaca; }
 
             .stats {
                 display: flex;
-                gap: 30px;
+                gap: 20px;
                 justify-content: center;
-                margin-bottom: 50px;
+                margin-bottom: 30px;
+                flex-wrap: wrap;
             }
             .stat-box { 
                 text-align: center; 
-                padding: 24px 40px;
-                border-radius: 20px;
+                padding: 20px 35px;
+                border-radius: 24px;
+                min-width: 150px;
             }
             .stat-box span { 
                 font-size: 2.5rem; 
                 font-weight: 800; 
-                background: linear-gradient(to right, #fff, #94a3b8);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
+                color: var(--accent);
                 display: block; 
             }
             
             .action-btn {
                 padding: 14px 28px;
                 border: none;
-                border-radius: 12px;
+                border-radius: 20px;
                 color: #fff;
                 cursor: pointer;
-                font-weight: 600;
+                font-weight: 800;
                 font-size: 1rem;
                 transition: all 0.2s;
                 text-transform: uppercase;
                 letter-spacing: 1px;
+                font-family: 'Nunito', sans-serif;
             }
             .btn-primary {
-                background: linear-gradient(135deg, var(--primary), #2563eb);
-                box-shadow: 0 0 20px var(--primary-glow);
+                background: linear-gradient(135deg, #34d399, #10b981);
+                box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
             }
             .btn-accent {
-                background: linear-gradient(135deg, var(--accent), #db2777);
-                box-shadow: 0 0 20px var(--accent-glow);
+                background: linear-gradient(135deg, #f472b6, #ec4899);
+                box-shadow: 0 10px 20px rgba(236, 72, 153, 0.3);
             }
             .action-btn:hover {
-                transform: scale(1.05);
+                transform: scale(1.05) translateY(-2px);
                 filter: brightness(1.1);
+            }
+            .hidden {
+                display: none !important;
             }
         </style>
     </head>
     <body>
         <header>
-            <h1>Weather Bot Dash</h1>
-            <p style="color: var(--text-muted); font-size: 1.1rem;">Automated Paper Trading for Polymarket Daily Temperatures</p>
+            <h1>🌺 Weather Bot Dash 🌺</h1>
+            <p style="color: var(--text-muted); font-size: 1.1rem; font-weight: 600;">Paper Trading in a pastel paradise! ✨</p>
         </header>
+
+        <div class="controls">
+            <select id="cityToggle" onchange="filterCity()">
+                <option value="all">🌍 All Cities (Global View)</option>
+                ${cities.sort().map(c => `<option value="${c}">${c.replace(/\\b\\w/g, l => l.toUpperCase())}</option>`).join('')}
+                <option value="other">Other / Unknown</option>
+            </select>
+
+            <div style="display: flex; gap: 15px;">
+                <button class="action-btn btn-primary" onclick="trigger('/api/run-cycle')">⚡ Run Cycle</button>
+                <button class="action-btn btn-accent" onclick="trigger('/api/resolve')">🔄 Resolve</button>
+            </div>
+        </div>
 
         <div class="stats">
             <div class="stat-box glass">
-                <span>${totalTrades}</span>
-                Total Trades Executed
+                <span id="stat-total">${totalTrades}</span>
+                <b style="color: var(--text-muted);">Total Trades</b>
             </div>
             <div class="stat-box glass">
-                <span>${openTradesCount}</span>
-                Open Positions
+                <span id="stat-open">${openTradesCount}</span>
+                <b style="color: var(--text-muted);">Open Positions</b>
             </div>
         </div>
 
-        <div style="text-align: center; margin-bottom: 50px; display: flex; justify-content: center; gap: 20px;">
-            <button class="action-btn btn-primary" onclick="trigger('/api/run-cycle')">⚡ Force Trade Cycle</button>
-            <button class="action-btn btn-accent" onclick="trigger('/api/resolve')">🔄 Force Resolution</button>
-        </div>
-
-        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400;">Wallets & Analytics</h2>
         <div class="grid">
-            ${walletsHtml}
+            ${wallets.map(w => `
+            <div class="card glass">
+                <h3>💖 ${w.name}</h3>
+                <p>Balance: <span class="highlight">$${w.balance.toFixed(2)}</span></p>
+                <p>Wallet ID: <code>${w.id}</code></p>
+                <div class="chart-container" style="position: relative; height:200px; width:100%; margin-top:20px;">
+                    <canvas id="chart-${w.id}"></canvas>
+                </div>
+                <div class="chart-toggles">
+                    <button onclick="updateChart('${w.id}', 1)">1D</button>
+                    <button onclick="updateChart('${w.id}', 7)">7D</button>
+                    <button onclick="updateChart('${w.id}', 30)">30D</button>
+                    <button onclick="updateChart('${w.id}', 'MAX')">MAX</button>
+                </div>
+            </div>
+            `).join('')}
         </div>
 
-        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400; margin-top: 40px;">Ledger: OpenMeteo Counter-Bet</h2>
+        <div class="section-title">☁️ OpenMeteo Counter-Bet</div>
         <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Market Details</th>
-                    <th>Forecast (API)</th>
-                    <th>Type</th>
-                    <th>Shares</th>
-                    <th>Avg Price</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tradesHtml1}
-            </tbody>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <tbody id="table-strategy-1">${trades1.map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
-        <h2 style="color: #fff; margin-bottom: 20px; font-weight: 400; margin-top: 40px;">Ledger: Cheapest NO</h2>
+        <div class="section-title">📉 Cheapest NO</div>
         <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Market Details</th>
-                    <th>Type</th>
-                    <th>Shares</th>
-                    <th>Avg Price</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tradesHtml2}
-            </tbody>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <tbody id="table-strategy-2">${trades2.map(t => renderRow(t, false)).join('')}</tbody>
+        </table>
+
+        <div class="section-title">🇺🇸 NWS Forecast Bet (YES)</div>
+        <table>
+            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Price</th><th>Status</th></tr></thead>
+            <tbody id="table-strategy-3">${trades3.map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
         <script>
@@ -332,13 +388,36 @@ app.get('/', (req, res) => {
                     .catch(e => alert('Error: ' + e));
             }
 
+            // Data passed for analytics toggling
+            const rawTrades = ${JSON.stringify(allTrades)};
             const rawHistory = ${JSON.stringify(historyByWalletId)};
             const chartInstances = {};
+            const cityDropdown = document.getElementById('cityToggle');
+
+            function filterCity() {
+                const selectedCity = cityDropdown.value;
+                const rows = document.querySelectorAll('.trade-row');
+                let visibleCount = 0;
+                let visibleOpen = 0;
+
+                rows.forEach(row => {
+                    const rowCity = row.getAttribute('data-city');
+                    if (selectedCity === 'all' || rowCity === selectedCity) {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                        if (row.innerHTML.includes('OPEN')) visibleOpen++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                document.getElementById('stat-total').innerText = visibleCount;
+                document.getElementById('stat-open').innerText = visibleOpen;
+            }
 
             function updateChart(walletId, days) {
                 const history = rawHistory[walletId] || [];
                 
-                // Filter history based on days
                 let filtered = history;
                 if (days !== 'MAX') {
                     const cutoff = new Date();
@@ -346,14 +425,13 @@ app.get('/', (req, res) => {
                     filtered = history.filter(h => new Date(h.recordedAt) >= cutoff);
                 }
 
-                // If nothing in that window, fallback to at least last data point or empty
                 if (filtered.length === 0 && history.length > 0) {
                     filtered = [history[history.length - 1]];
                 }
 
                 const labels = filtered.map(h => {
                     const d = new Date(h.recordedAt);
-                    return d.toLocaleDateString('en-US', {timeZone: 'America/New_York'}) + ' ' + d.toLocaleTimeString('en-US', {timeZone: 'America/New_York', hour: '2-digit', minute:'2-digit'}) + ' ET';
+                    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 });
                 const data = filtered.map(h => h.balance);
 
@@ -364,14 +442,12 @@ app.get('/', (req, res) => {
                 } else {
                     const ctx = document.getElementById('chart-' + walletId).getContext('2d');
                     
-                    // Create gradient for line
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                    const isStrategy1 = walletId === 'strategy-1';
-                    const mainColor = isStrategy1 ? '#38bdf8' : '#f472b6';
-                    const rgb = isStrategy1 ? '56,189,248' : '244,114,182';
-
-                    gradient.addColorStop(0, \`rgba(\${rgb}, 0.5)\`);
-                    gradient.addColorStop(1, \`rgba(\${rgb}, 0.0)\`);
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                    const isStrat1 = walletId === 'strategy-1';
+                    const mainColor = isStrat1 ? '#0ea5e9' : (walletId === 'strategy-2' ? '#ec4899' : '#10b981');
+                    
+                    gradient.addColorStop(0, mainColor + '60');
+                    gradient.addColorStop(1, mainColor + '00');
 
                     chartInstances[walletId] = new Chart(ctx, {
                         type: 'line',
@@ -392,40 +468,21 @@ app.get('/', (req, res) => {
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    mode: 'index',
-                                    intersect: false,
-                                    backgroundColor: 'rgba(24, 24, 27, 0.9)',
-                                    titleColor: '#94a3b8',
-                                    bodyColor: '#fff',
-                                    borderColor: 'rgba(255,255,255,0.1)',
-                                    borderWidth: 1
-                                }
-                            },
+                            plugins: { legend: { display: false } },
                             scales: {
                                 x: { display: false },
                                 y: { 
                                     display: true,
-                                    grid: { display: true, color: 'rgba(255,255,255,0.05)' },
-                                    ticks: { color: '#94a3b8' }
+                                    grid: { display: true, color: 'rgba(0,0,0,0.05)' },
+                                    ticks: { color: '#64748b' }
                                 }
-                            },
-                            interaction: {
-                                mode: 'nearest',
-                                axis: 'x',
-                                intersect: false
                             }
                         }
                     });
                 }
             }
 
-            // Initialize all charts to 7D default
-            Object.keys(rawHistory).forEach(walletId => {
-                updateChart(walletId, 7);
-            });
+            Object.keys(rawHistory).forEach(walletId => updateChart(walletId, 7));
         </script>
     </body>
     </html>

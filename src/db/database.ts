@@ -51,6 +51,7 @@ export function initDatabase() {
     const ensureWallet = db.prepare('INSERT OR IGNORE INTO wallets (id, name, balance) VALUES (?, ?, ?)');
     ensureWallet.run('strategy-1', 'OpenMeteo Counter-Bet', 10000);
     ensureWallet.run('strategy-2', 'Cheapest NO', 10000);
+    ensureWallet.run('strategy-3', 'NWS Forecast Bet', 10000);
 
     // Seed history if empty
     const historyCount = db.prepare('SELECT COUNT(*) as c FROM wallet_history').get() as any;

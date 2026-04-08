@@ -1,12 +1,14 @@
 import { PolymarketService } from '../services/PolymarketService';
 import { OpenMeteoStrategy } from '../strategies/OpenMeteoStrategy';
 import { CheapestNoStrategy } from '../strategies/CheapestNoStrategy';
+import { NwsStrategy } from '../strategies/NwsStrategy';
 import { getOpenTrades, updateTradeStatus } from '../db/database';
 
 export class BotManager {
     private strategies = [
         new OpenMeteoStrategy(),
-        new CheapestNoStrategy()
+        new CheapestNoStrategy(),
+        new NwsStrategy()
     ];
 
     async runCycle() {
