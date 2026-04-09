@@ -3,7 +3,7 @@ import { OpenMeteoService } from '../services/OpenMeteoService';
 import { OpenMeteoStrategy } from '../strategies/OpenMeteoStrategy';
 import { CheapestNoStrategy } from '../strategies/CheapestNoStrategy';
 import { NwsStrategy } from '../strategies/NwsStrategy';
-import { getOpenTrades, updateTradeStatus, updateTradeCurrentPrice, updateTradeLatestForecast, getWalletBalance, updateWalletBalance } from '../db/database';
+import { getOpenTrades, getAllTrades, updateTradeStatus, updateTradeCurrentPrice, updateTradeLatestForecast, getWalletBalance, updateWalletBalance } from '../db/database';
 
 export class BotManager {
     private strategies = [
@@ -30,8 +30,9 @@ export class BotManager {
 
     async resolveTrades() {
         console.log(`[BotManager] Starting resolution cycle at ${new Date().toISOString()}`);
-        const openTrades = getOpenTrades();
-        console.log(`[BotManager] Checking resolution ${openTrades.length} open trades.`);
+        const allTrades = getAllTrades() as any[];
+        const openTrades = allTrades.filter(t => t.status === 'OPEN' || t.status === 'CLOSED');
+        console.log(`[BotManager] Checking resolution ${openTrades.length} pending trades.`);
 
         for (const trade of openTrades) {
             try {
