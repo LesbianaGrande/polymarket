@@ -130,9 +130,15 @@ export class PolymarketService {
              const market = res.data;
              if (market && market.closed) {
                  // Try to figure out winning token or outcome
+                 let winningToken = undefined;
+                 if (market.tokens && Array.isArray(market.tokens)) {
+                     const winner = market.tokens.find((t: any) => t.winner === true);
+                     if (winner) winningToken = winner.token_id;
+                 }
                  return {
                      resolved: true,
-                     conditionId: market.conditionId
+                     conditionId: market.conditionId,
+                     winningToken
                  };
              }
              return { resolved: false };

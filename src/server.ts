@@ -69,21 +69,28 @@ app.get('/', (req, res) => {
 
     function renderRow(t: any, showForecast: boolean) {
         const titleText = t.marketTitle && t.marketTitle !== 'Unknown Title' ? t.marketTitle : t.marketId;
-        const statusColor = t.status === 'OPEN' ? '#f59e0b' : (t.status === 'WON' ? '#10b981' : '#ef4444');
-        const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span></td>` : '';
+        const statusColor = t.status === 'OPEN' ? '#f59e0b' : (t.status === 'WON' ? '#10b981' : (t.status === 'LOST' ? '#ef4444' : '#64748b'));
         const cityKey = getCity(titleText);
         
         let pnlText = '';
-        if (t.currentPrice !== undefined && t.currentPrice !== null) {
+        if (t.status !== 'OPEN' && t.status !== 'CLOSED') {
+             const cost = t.amount * t.price;
+             let net = 0;
+             if (t.status === 'WON') net = t.amount - cost;
+             if (t.status === 'LOST') net = -cost;
+             pnlText = `<span style="color: ${net >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">${net >= 0 ? '+$' : '-$'}${Math.abs(net).toFixed(3)}</span>`;
+        } else if (t.currentPrice !== undefined && t.currentPrice !== null) {
             const diff = t.currentPrice - t.price;
             const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
-            pnlText = `<span style="color: ${diffColor}; font-weight: bold;">$${t.currentPrice.toFixed(3)}</span>`;
+            pnlText = `<span style="color: ${diffColor}; font-weight: bold;">$${t.currentPrice.toFixed(3)} (Est)</span>`;
         } else {
             pnlText = `<span style="color: var(--text-muted);">N/A</span>`;
         }
+        
+        const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span> <br><span style="font-size:0.8rem; color:var(--text-muted)">Latest: ${t.latestForecastTemp || 'N/A'}</span></td>` : '';
 
         return `
-            <tr data-city="${cityKey}" class="trade-row">
+            <tr data-city="${cityKey}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
                 <td><strong style="color: #475569; font-size:1.05rem;">${titleText}</strong></td>
                 ${forecastTd}
@@ -249,7 +256,7 @@ app.get('/', (req, res) => {
                 box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
             }
             th, td {
-                padding: 20px;
+                padding: 15px 20px;
                 text-align: left;
                 border-bottom: 1px solid #e2e8f0;
             }
@@ -260,6 +267,17 @@ app.get('/', (req, res) => {
                 letter-spacing: 1px;
                 font-size: 0.85rem;
                 color: var(--text-muted);
+                cursor: pointer;
+                user-select: none;
+            }
+            th:hover {
+                background-color: #e2e8f0;
+            }
+            .sub-title {
+                color: var(--text-muted);
+                margin: 0px 0 10px 0;
+                font-size: 1.1rem;
+                font-weight: 700;
             }
             tr:last-child td { border-bottom: none; }
             tr:hover td { background-color: #f1f5f9; }
@@ -333,7 +351,7 @@ app.get('/', (req, res) => {
         <div class="controls">
             <select id="cityToggle" onchange="filterCity()">
                 <option value="all">🌍 All Cities (Global View)</option>
-                ${cities.sort().map(c => `<option value="${c}">${c.replace(/\\b\\w/g, l => l.toUpperCase())}</option>`).join('')}
+                ${cities.sort().map(c => `<option value="${c}">${c.replace(/\b\w/g, (l:string) => l.toUpperCase())}</option>`).join('')}
                 <option value="other">Other / Unknown</option>
             </select>
 
@@ -351,6 +369,26 @@ app.get('/', (req, res) => {
             <div class="stat-box glass">
                 <span id="stat-open">${openTradesCount}</span>
                 <b style="color: var(--text-muted);">Open Positions</b>
+            </div>
+            <div class="stat-box glass">
+                <span id="stat-net-pnl">$0.00</span>
+                <b style="color: var(--text-muted);">Net PnL</b>
+            </div>
+            <div class="stat-box glass">
+                <span id="stat-roc">0%</span>
+                <b style="color: var(--text-muted);">Return on Capital</b>
+            </div>
+            <div class="stat-box glass">
+                <span id="stat-winrate">0%</span>
+                <b style="color: var(--text-muted);">Win Rate</b>
+            </div>
+            <div class="stat-box glass">
+                <span id="stat-avgwin">$0.00</span>
+                <b style="color: var(--text-muted);">Avg Win</b>
+            </div>
+            <div class="stat-box glass">
+                <span id="stat-avgloss">$0.00</span>
+                <b style="color: var(--text-muted);">Avg Loss</b>
             </div>
         </div>
 
@@ -374,21 +412,39 @@ app.get('/', (req, res) => {
         </div>
 
         <div class="section-title">☁️ OpenMeteo Counter-Bet</div>
-        <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
-            <tbody id="table-strategy-1">${trades1.map(t => renderRow(t, true)).join('')}</tbody>
+        <h3 class="sub-title">Active Positions</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-1-open">${trades1.filter(t => t.status === 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
+        </table>
+        <h3 class="sub-title" style="margin-top:20px;">Settled History</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-1-settled">${trades1.filter(t => t.status !== 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
         <div class="section-title">📉 Cheapest NO</div>
-        <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
-            <tbody id="table-strategy-2">${trades2.map(t => renderRow(t, false)).join('')}</tbody>
+        <h3 class="sub-title">Active Positions</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Type ↕</th><th onclick="sortTable(this, 3)">Shares ↕</th><th onclick="sortTable(this, 4)">Avg Buy Price ↕</th><th onclick="sortTable(this, 5)">PnL ↕</th><th onclick="sortTable(this, 6)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-2-open">${trades2.filter(t => t.status === 'OPEN').map(t => renderRow(t, false)).join('')}</tbody>
+        </table>
+        <h3 class="sub-title" style="margin-top:20px;">Settled History</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Type ↕</th><th onclick="sortTable(this, 3)">Shares ↕</th><th onclick="sortTable(this, 4)">Avg Buy Price ↕</th><th onclick="sortTable(this, 5)">PnL ↕</th><th onclick="sortTable(this, 6)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-2-settled">${trades2.filter(t => t.status !== 'OPEN').map(t => renderRow(t, false)).join('')}</tbody>
         </table>
 
         <div class="section-title">🇺🇸 NWS Forecast Bet (YES)</div>
-        <table>
-            <thead><tr><th>Date</th><th>Market Details</th><th>Forecast</th><th>Type</th><th>Shares</th><th>Avg Buy Price</th><th>Current Price</th><th>Status</th></tr></thead>
-            <tbody id="table-strategy-3">${trades3.map(t => renderRow(t, true)).join('')}</tbody>
+        <h3 class="sub-title">Active Positions</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-3-open">${trades3.filter(t => t.status === 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
+        </table>
+        <h3 class="sub-title" style="margin-top:20px;">Settled History</h3>
+        <table class="sortable">
+            <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
+            <tbody id="table-strategy-3-settled">${trades3.filter(t => t.status !== 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
         <script>
@@ -405,25 +461,100 @@ app.get('/', (req, res) => {
             const chartInstances = {};
             const cityDropdown = document.getElementById('cityToggle');
 
+            function calculateStats() {
+                const rows = document.querySelectorAll('.trade-row:not(.hidden)');
+                let deployed = 0, returned = 0, netPnl = 0, wins = 0, losses = 0, totalWinAmt = 0, totalLossAmt = 0;
+                let tCount = 0, oCount = 0;
+
+                rows.forEach(row => {
+                    tCount++;
+                    const status = row.getAttribute('data-status');
+                    if (status === 'OPEN') oCount++;
+                    const shares = parseFloat(row.getAttribute('data-shares')) || 0;
+                    const buyPrice = parseFloat(row.getAttribute('data-price')) || 0;
+                    const cost = shares * buyPrice;
+                    
+                    if (status === 'WON' || status === 'LOST') {
+                        deployed += cost;
+                        if (status === 'WON') {
+                            wins++;
+                            returned += (shares * 1.0);
+                            totalWinAmt += ((shares * 1.0) - cost);
+                        } else {
+                            losses++;
+                            totalLossAmt += cost;
+                        }
+                    }
+                });
+
+                netPnl = returned - deployed;
+                const winRate = (wins + losses) > 0 ? ((wins / (wins + losses)) * 100).toFixed(1) + '%' : '0%';
+                const roc = deployed > 0 ? ((netPnl / deployed) * 100).toFixed(1) + '%' : '0%';
+                const avgWin = wins > 0 ? '$' + (totalWinAmt / wins).toFixed(2) : '$0';
+                const avgLoss = losses > 0 ? '$' + (totalLossAmt / losses).toFixed(2) : '$0';
+
+                document.getElementById('stat-total').innerText = tCount;
+                document.getElementById('stat-open').innerText = oCount;
+                const pnlEl = document.getElementById('stat-net-pnl');
+                pnlEl.innerText = (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2);
+                pnlEl.style.color = netPnl >= 0 ? '#10b981' : '#ef4444';
+                document.getElementById('stat-roc').innerText = roc;
+                document.getElementById('stat-winrate').innerText = winRate;
+                document.getElementById('stat-avgwin').innerText = avgWin;
+                document.getElementById('stat-avgloss').innerText = avgLoss;
+            }
+
             function filterCity() {
                 const selectedCity = cityDropdown.value;
                 const rows = document.querySelectorAll('.trade-row');
-                let visibleCount = 0;
-                let visibleOpen = 0;
 
                 rows.forEach(row => {
                     const rowCity = row.getAttribute('data-city');
                     if (selectedCity === 'all' || rowCity === selectedCity) {
                         row.classList.remove('hidden');
-                        visibleCount++;
-                        if (row.innerHTML.includes('OPEN')) visibleOpen++;
                     } else {
                         row.classList.add('hidden');
                     }
                 });
+                
+                calculateStats();
+            }
+            
+            // Initialization run
+            calculateStats();
 
-                document.getElementById('stat-total').innerText = visibleCount;
-                document.getElementById('stat-open').innerText = visibleOpen;
+            function sortTable(thElement, colIndex) {
+                const table = thElement.closest('table');
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const isAsc = thElement.classList.toggle('asc');
+                const direction = isAsc ? 1 : -1;
+                
+                // Reset other siblings
+                const headers = table.querySelectorAll('th');
+                headers.forEach(h => {
+                    if(h !== thElement) {
+                        h.classList.remove('asc', 'desc');
+                        h.innerText = h.innerText.replace(/[🔼🔽↕]/g, '↕');
+                    }
+                });
+                thElement.classList.toggle('desc', !isAsc);
+                const textWithoutArrows = thElement.innerText.replace(/[🔼🔽↕]/g, '').trim();
+                thElement.innerText = textWithoutArrows + ' ' + (isAsc ? '🔼' : '🔽');
+
+                rows.sort((a, b) => {
+                    const aText = a.cells[colIndex].innerText.replace(/[^0-9.-]+/g,"");
+                    const bText = b.cells[colIndex].innerText.replace(/[^0-9.-]+/g,"");
+                    const aNum = parseFloat(aText);
+                    const bNum = parseFloat(bText);
+
+                    if(!isNaN(aNum) && !isNaN(bNum)) {
+                        return (aNum - bNum) * direction;
+                    }
+                    return a.cells[colIndex].innerText.localeCompare(b.cells[colIndex].innerText) * direction;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
             }
 
             function updateChart(walletId, days) {

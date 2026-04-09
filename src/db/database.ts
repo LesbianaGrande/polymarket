@@ -41,6 +41,10 @@ export function initDatabase() {
         db.exec("ALTER TABLE trades ADD COLUMN currentPrice REAL DEFAULT NULL");
     } catch (e) {}
 
+    try {
+        db.exec("ALTER TABLE trades ADD COLUMN latestForecastTemp TEXT DEFAULT ''");
+    } catch (e) {}
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS wallet_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,15 +90,16 @@ export function getWalletHistory() {
     return db.prepare('SELECT * FROM wallet_history ORDER BY recordedAt ASC').all() as any[];
 }
 
-export function saveTrade(trade: { id: string, walletId: string, marketId: string, marketTitle: string, forecastTemp?: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
+export function saveTrade(trade: { id: string, walletId: string, marketId: string, marketTitle: string, forecastTemp?: string, latestForecastTemp?: string, tokenId: string, type: 'NO' | 'YES', price: number, amount: number, status: 'OPEN' | 'WON' | 'LOST' | 'CLOSED' }) {
     const stmt = db.prepare(`
-        INSERT INTO trades (id, walletId, marketId, marketTitle, forecastTemp, tokenId, type, price, amount, status)
-        VALUES (@id, @walletId, @marketId, @marketTitle, @forecastTemp, @tokenId, @type, @price, @amount, @status)
+        INSERT INTO trades (id, walletId, marketId, marketTitle, forecastTemp, latestForecastTemp, tokenId, type, price, amount, status)
+        VALUES (@id, @walletId, @marketId, @marketTitle, @forecastTemp, @latestForecastTemp, @tokenId, @type, @price, @amount, @status)
     `);
     
     stmt.run({
         ...trade,
-        forecastTemp: trade.forecastTemp || ''
+        forecastTemp: trade.forecastTemp || '',
+        latestForecastTemp: trade.latestForecastTemp || ''
     });
 }
 
@@ -112,6 +117,10 @@ export function updateTradeStatus(tradeId: string, status: 'WON' | 'LOST' | 'CLO
 
 export function updateTradeCurrentPrice(tradeId: string, currentPrice: number) {
     db.prepare('UPDATE trades SET currentPrice = ? WHERE id = ?').run(currentPrice, tradeId);
+}
+
+export function updateTradeLatestForecast(tradeId: string, temp: string) {
+    db.prepare('UPDATE trades SET latestForecastTemp = ? WHERE id = ?').run(temp, tradeId);
 }
 
 export default db;

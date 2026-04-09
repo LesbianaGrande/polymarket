@@ -86,4 +86,45 @@ export class OpenMeteoService {
             return null;
         }
     }
+
+    /**
+     * Gets the forecasted highest temperature for a specific date (YYYY-MM-DD)
+     */
+    static async getForecastForDate(cityName: string, targetDateStr: string, isCelsius: boolean = false): Promise<number | null> {
+        const cityKey = cityName.toLowerCase();
+        const coords = CITY_COORDINATES[cityKey];
+        if (!coords) return null;
+
+        try {
+            const unit = isCelsius ? 'celsius' : 'fahrenheit';
+            let url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${targetDateStr}&end_date=${targetDateStr}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}&models=ecmwf_ifs025`;
+            
+            let res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+            
+            if (!res.ok) {
+                if (res.status === 400 || res.status === 429) {
+                    url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${targetDateStr}&end_date=${targetDateStr}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
+                    res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+                }
+            }
+            
+            let data = await res.json();
+            let daily = data.daily;
+
+            if (!daily || !daily.temperature_2m_max || daily.temperature_2m_max[0] === null) {
+                let fallbackUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${targetDateStr}&end_date=${targetDateStr}&daily=temperature_2m_max&temperature_unit=${unit}&timezone=${coords.timezone}`;
+                res = await fetch(fallbackUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PolymarketWeatherBot/1.0' }});
+                data = await res.json();
+                daily = data.daily;
+            }
+
+            if (daily && daily.temperature_2m_max && daily.temperature_2m_max.length > 0 && daily.temperature_2m_max[0] !== null) {
+                return Math.round(daily.temperature_2m_max[0]);
+            }
+            return null;
+        } catch (err: any) {
+            console.error(`[OpenMeteo] Error fetching specific date forecast for ${cityName}:`, err.message || err);
+            return null;
+        }
+    }
 }

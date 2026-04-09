@@ -1,8 +1,9 @@
 import { PolymarketService } from '../services/PolymarketService';
+import { OpenMeteoService } from '../services/OpenMeteoService';
 import { OpenMeteoStrategy } from '../strategies/OpenMeteoStrategy';
 import { CheapestNoStrategy } from '../strategies/CheapestNoStrategy';
 import { NwsStrategy } from '../strategies/NwsStrategy';
-import { getOpenTrades, updateTradeStatus, updateTradeCurrentPrice } from '../db/database';
+import { getOpenTrades, updateTradeStatus, updateTradeCurrentPrice, updateTradeLatestForecast, getWalletBalance, updateWalletBalance } from '../db/database';
 
 export class BotManager {
     private strategies = [
@@ -33,10 +34,40 @@ export class BotManager {
         console.log(`[BotManager] Checking resolution ${openTrades.length} open trades.`);
 
         for (const trade of openTrades) {
+            try {
+                const match = trade.marketTitle.match(/highest temperature in (.+?) on ([a-zA-Z]+ \d+)/i);
+                if (match) {
+                    const cityName = match[1];
+                    const dateStr = match[2] + ', ' + new Date().getFullYear();
+                    const targetDate = new Date(dateStr);
+                    if (!isNaN(targetDate.getTime())) {
+                        const formatted = targetDate.toISOString().split('T')[0];
+                        const forecast = await OpenMeteoService.getForecastForDate(cityName, formatted);
+                        if (forecast !== null) {
+                            updateTradeLatestForecast(trade.id, `${forecast}°F`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`[BotManager] Failed to update latest forecast for trade ${trade.id}`);
+            }
+
             const result = await PolymarketService.checkMarketResolution(trade.marketId);
             if (result.resolved) {
-                updateTradeStatus(trade.id, 'CLOSED');
-                console.log(`[BotManager] Trade ${trade.id} market resolved. Marked as CLOSED.`);
+                let winStatus: 'WON' | 'LOST' | 'CLOSED' = 'CLOSED';
+                if (result.winningToken) {
+                    if (trade.tokenId === result.winningToken) {
+                        winStatus = 'WON';
+                        // Add payout ($1 per share won)
+                        const payout = trade.amount * 1.0;
+                        const currentBal = getWalletBalance(trade.walletId);
+                        updateWalletBalance(trade.walletId, currentBal + payout);
+                    } else {
+                        winStatus = 'LOST';
+                    }
+                }
+                updateTradeStatus(trade.id, winStatus);
+                console.log(`[BotManager] Trade ${trade.id} market resolved. Marked as ${winStatus}.`);
             } else if (trade.tokenId) {
                 // Not resolved, so let's update the current price for display on dashboard
                 try {
