@@ -30,7 +30,7 @@ app.get('/', (req, res) => {
     for (const w of wallets) {
         walletsHtml += `
             <div class="card glass">
-                <h3>💵 ${w.name}</h3>
+                <h3>💖 ${w.name}</h3>
                 <p>Balance: <span class="highlight">$${w.balance.toFixed(2)}</span></p>
                 <p>Wallet ID: <code>${w.id}</code></p>
                 <div class="chart-container" style="position: relative; height:200px; width:100%; margin-top:20px;">
@@ -38,11 +38,8 @@ app.get('/', (req, res) => {
                 </div>
                 <div class="chart-toggles">
                     <button onclick="updateChart('${w.id}', 1)">1D</button>
-                    <button onclick="updateChart('${w.id}', 3)">3D</button>
                     <button onclick="updateChart('${w.id}', 7)">7D</button>
-                    <button onclick="updateChart('${w.id}', 14)">14D</button>
                     <button onclick="updateChart('${w.id}', 30)">30D</button>
-                    <button onclick="updateChart('${w.id}', 90)">90D</button>
                     <button onclick="updateChart('${w.id}', 'MAX')">MAX</button>
                 </div>
             </div>
@@ -90,7 +87,7 @@ app.get('/', (req, res) => {
         const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span> <br><span style="font-size:0.8rem; color:var(--text-muted)">Latest: ${t.latestForecastTemp || 'N/A'}</span></td>` : '';
 
         return `
-            <tr data-city="${cityKey}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
+            <tr data-city="${cityKey}" data-date="${t.createdAt}" data-strategy="${t.walletId}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row strat-${t.walletId} ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
                 <td><strong style="color: #475569; font-size:1.05rem;">${titleText}</strong></td>
                 ${forecastTd}
@@ -158,8 +155,9 @@ app.get('/', (req, res) => {
                 text-align: center;
                 margin-bottom: 40px;
                 display: flex;
-                flex-direction: column;
-                align-items: center;
+                flex-direction: row;
+                justify-content: center;
+                flex-wrap: wrap;
                 gap: 15px;
             }
             select {
@@ -235,7 +233,7 @@ app.get('/', (req, res) => {
             }
             .section-title {
                 color: #0f766e;
-                margin-bottom: 20px;
+                margin-bottom: 10px;
                 font-weight: 800;
                 font-size: 1.5rem;
                 margin-top: 40px;
@@ -244,6 +242,27 @@ app.get('/', (req, res) => {
                 padding: 10px 20px;
                 border-radius: 20px;
                 border: 2px solid var(--border);
+            }
+            .mini-stats {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 15px;
+                margin-bottom: 20px;
+                background: white;
+                padding: 15px 25px;
+                border-radius: 16px;
+                border: 1px dashed var(--border);
+                align-items: center;
+            }
+            .mini-stat {
+                font-size: 0.95rem;
+                color: var(--text-muted);
+                font-weight: 600;
+            }
+            .mini-stat b {
+                font-size: 1.15rem;
+                color: var(--text);
+                margin-left: 5px;
             }
             table {
                 width: 100%;
@@ -340,18 +359,28 @@ app.get('/', (req, res) => {
             .hidden {
                 display: none !important;
             }
+
+            /* Tooltip styling for matrix rows */
+            .matrix-row:hover { background: #e0f2fe; }
         </style>
     </head>
     <body>
         <header>
             <h1>🌺 Weather Bot Dash 🌺</h1>
-            <p style="color: var(--text-muted); font-size: 1.1rem; font-weight: 600;">Paper Trading in a pastel paradise! ✨</p>
+            <p style="color: var(--text-muted); font-size: 1.1rem; font-weight: 600;">Full Analytics Tracking</p>
         </header>
 
         <div class="controls">
-            <select id="cityToggle" onchange="filterCity()">
+            <select id="timeToggle" onchange="filterData()">
+                <option value="all">📅 All Time (Default)</option>
+                <option value="1">📅 Today Only</option>
+                <option value="7">📅 Last 7 Days</option>
+                <option value="30">📅 Last 30 Days</option>
+            </select>
+
+            <select id="cityToggle" onchange="filterData()">
                 <option value="all">🌍 All Cities (Global View)</option>
-                ${cities.sort().map(c => `<option value="${c}">${c.replace(/\b\w/g, (l:string) => l.toUpperCase())}</option>`).join('')}
+                ${cities.sort().map(c => `<option value="${c}">${c.replace(/\b\w/g, (l) => l.toUpperCase())}</option>`).join('')}
                 <option value="other">Other / Unknown</option>
             </select>
 
@@ -372,7 +401,7 @@ app.get('/', (req, res) => {
             </div>
             <div class="stat-box glass">
                 <span id="stat-net-pnl">$0.00</span>
-                <b style="color: var(--text-muted);">Net PnL</b>
+                <b style="color: var(--text-muted);">Total Profit</b>
             </div>
             <div class="stat-box glass">
                 <span id="stat-roc">0%</span>
@@ -393,25 +422,18 @@ app.get('/', (req, res) => {
         </div>
 
         <div class="grid">
-            ${wallets.map(w => `
-            <div class="card glass">
-                <h3>💖 ${w.name}</h3>
-                <p>Balance: <span class="highlight">$${w.balance.toFixed(2)}</span></p>
-                <p>Wallet ID: <code>${w.id}</code></p>
-                <div class="chart-container" style="position: relative; height:200px; width:100%; margin-top:20px;">
-                    <canvas id="chart-${w.id}"></canvas>
-                </div>
-                <div class="chart-toggles">
-                    <button onclick="updateChart('${w.id}', 1)">1D</button>
-                    <button onclick="updateChart('${w.id}', 7)">7D</button>
-                    <button onclick="updateChart('${w.id}', 30)">30D</button>
-                    <button onclick="updateChart('${w.id}', 'MAX')">MAX</button>
-                </div>
-            </div>
-            `).join('')}
+            ${walletsHtml}
         </div>
 
+        <!-- Strategy 1 -->
         <div class="section-title">☁️ OpenMeteo Counter-Bet</div>
+        <div class="mini-stats" id="mini-strat-strategy-1">
+            <span class="mini-stat">Total Profit: <b class="val-pnl">$0.00</b></span>
+            <span class="mini-stat">Win Rate: <b class="val-wr">0%</b></span>
+            <span class="mini-stat">ROI: <b class="val-roi">0%</b></span>
+            <span class="mini-stat">Settled: <b class="val-count">0</b></span>
+            <span class="mini-stat" style="margin-left: auto;">Current Open: <b class="val-open">0</b></span>
+        </div>
         <h3 class="sub-title">Active Positions</h3>
         <table class="sortable">
             <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
@@ -423,7 +445,15 @@ app.get('/', (req, res) => {
             <tbody id="table-strategy-1-settled">${trades1.filter(t => t.status !== 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
+        <!-- Strategy 2 -->
         <div class="section-title">📉 Cheapest NO</div>
+        <div class="mini-stats" id="mini-strat-strategy-2">
+            <span class="mini-stat">Total Profit: <b class="val-pnl">$0.00</b></span>
+            <span class="mini-stat">Win Rate: <b class="val-wr">0%</b></span>
+            <span class="mini-stat">ROI: <b class="val-roi">0%</b></span>
+            <span class="mini-stat">Settled: <b class="val-count">0</b></span>
+            <span class="mini-stat" style="margin-left: auto;">Current Open: <b class="val-open">0</b></span>
+        </div>
         <h3 class="sub-title">Active Positions</h3>
         <table class="sortable">
             <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Type ↕</th><th onclick="sortTable(this, 3)">Shares ↕</th><th onclick="sortTable(this, 4)">Avg Buy Price ↕</th><th onclick="sortTable(this, 5)">PnL ↕</th><th onclick="sortTable(this, 6)">Status ↕</th></tr></thead>
@@ -435,7 +465,15 @@ app.get('/', (req, res) => {
             <tbody id="table-strategy-2-settled">${trades2.filter(t => t.status !== 'OPEN').map(t => renderRow(t, false)).join('')}</tbody>
         </table>
 
+        <!-- Strategy 3 -->
         <div class="section-title">🇺🇸 NWS Forecast Bet (YES)</div>
+        <div class="mini-stats" id="mini-strat-strategy-3">
+            <span class="mini-stat">Total Profit: <b class="val-pnl">$0.00</b></span>
+            <span class="mini-stat">Win Rate: <b class="val-wr">0%</b></span>
+            <span class="mini-stat">ROI: <b class="val-roi">0%</b></span>
+            <span class="mini-stat">Settled: <b class="val-count">0</b></span>
+            <span class="mini-stat" style="margin-left: auto;">Current Open: <b class="val-open">0</b></span>
+        </div>
         <h3 class="sub-title">Active Positions</h3>
         <table class="sortable">
             <thead><tr><th onclick="sortTable(this, 0)">Date ↕</th><th onclick="sortTable(this, 1)">Market Details ↕</th><th onclick="sortTable(this, 2)">Forecast ↕</th><th onclick="sortTable(this, 3)">Type ↕</th><th onclick="sortTable(this, 4)">Shares ↕</th><th onclick="sortTable(this, 5)">Avg Buy Price ↕</th><th onclick="sortTable(this, 6)">PnL ↕</th><th onclick="sortTable(this, 7)">Status ↕</th></tr></thead>
@@ -447,6 +485,27 @@ app.get('/', (req, res) => {
             <tbody id="table-strategy-3-settled">${trades3.filter(t => t.status !== 'OPEN').map(t => renderRow(t, true)).join('')}</tbody>
         </table>
 
+        <!-- Advanced Analytics Matrix -->
+        <div style="margin-top: 60px;">
+            <div class="section-title" style="margin-bottom: 25px; border-color: #38bdf8;">📊 Breakdown Matrix (Settled Trades)</div>
+            <table class="sortable" id="matrix-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(this, 0)">Execution Date ↕</th>
+                        <th onclick="sortTable(this, 1)">Strategy ↕</th>
+                        <th onclick="sortTable(this, 2)">City ↕</th>
+                        <th onclick="sortTable(this, 3)">Trades Settled ↕</th>
+                        <th onclick="sortTable(this, 4)">Win Rate ↕</th>
+                        <th onclick="sortTable(this, 5)">Deployed Capital ↕</th>
+                        <th onclick="sortTable(this, 6)">Total Profit ↕</th>
+                    </tr>
+                </thead>
+                <tbody id="matrix-tbody">
+                    <!-- Matrix dynamically rendered by Javascript -->
+                </tbody>
+            </table>
+        </div>
+
         <script>
             function trigger(url) {
                 fetch(url, {method: 'POST'})
@@ -456,12 +515,13 @@ app.get('/', (req, res) => {
             }
 
             // Data passed for analytics toggling
-            const rawTrades = ${JSON.stringify(allTrades)};
             const rawHistory = ${JSON.stringify(historyByWalletId)};
             const chartInstances = {};
             const cityDropdown = document.getElementById('cityToggle');
+            const timeDropdown = document.getElementById('timeToggle');
 
             function calculateStats() {
+                // 1. Calculate Global Stats
                 const rows = document.querySelectorAll('.trade-row:not(.hidden)');
                 let deployed = 0, returned = 0, netPnl = 0, wins = 0, losses = 0, totalWinAmt = 0, totalLossAmt = 0;
                 let tCount = 0, oCount = 0;
@@ -502,15 +562,65 @@ app.get('/', (req, res) => {
                 document.getElementById('stat-winrate').innerText = winRate;
                 document.getElementById('stat-avgwin').innerText = avgWin;
                 document.getElementById('stat-avgloss').innerText = avgLoss;
+
+                // 2. Calculate Strategy-specific mini stats
+                ['strategy-1', 'strategy-2', 'strategy-3'].forEach(strat => {
+                    const stratRows = document.querySelectorAll('.trade-row.strat-' + strat + ':not(.hidden)');
+                    let sDep = 0, sRet = 0, sWins = 0, sLosses = 0, sOpen = 0;
+                    stratRows.forEach(r => {
+                        const status = r.getAttribute('data-status');
+                        if (status === 'OPEN') sOpen++;
+                        const shares = parseFloat(r.getAttribute('data-shares')) || 0;
+                        const bp = parseFloat(r.getAttribute('data-price')) || 0;
+                        const c = shares * bp;
+                        if (status === 'WON' || status === 'LOST') {
+                            sDep += c;
+                            if (status === 'WON') {
+                                sWins++;
+                                sRet += (shares * 1.0);
+                            } else {
+                                sLosses++;
+                            }
+                        }
+                    });
+
+                    const sNet = sRet - sDep;
+                    const sWR = (sWins + sLosses) > 0 ? ((sWins / (sWins + sLosses)) * 100).toFixed(1) + '%' : '0%';
+                    const sROC = sDep > 0 ? ((sNet / sDep) * 100).toFixed(1) + '%' : '0%';
+                    
+                    const el = document.getElementById('mini-strat-' + strat);
+                    if (el) {
+                        el.querySelector('.val-count').innerText = (sWins + sLosses);
+                        el.querySelector('.val-open').innerText = sOpen;
+                        el.querySelector('.val-wr').innerText = sWR;
+                        el.querySelector('.val-roi').innerText = sROC;
+                        const pEl = el.querySelector('.val-pnl');
+                        pEl.innerText = (sNet >= 0 ? '+$' : '-$') + Math.abs(sNet).toFixed(2);
+                        pEl.style.color = sNet >= 0 ? '#10b981' : '#ef4444';
+                    }
+                });
             }
 
-            function filterCity() {
+            function filterData() {
                 const selectedCity = cityDropdown.value;
+                const daysLimit = timeDropdown.value;
+                let cutoffDate = null;
+                if (daysLimit !== 'all') {
+                    cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() - parseInt(daysLimit));
+                }
+
                 const rows = document.querySelectorAll('.trade-row');
 
                 rows.forEach(row => {
                     const rowCity = row.getAttribute('data-city');
-                    if (selectedCity === 'all' || rowCity === selectedCity) {
+                    const rowDateStr = row.getAttribute('data-date');
+                    const rowDate = new Date(rowDateStr);
+
+                    const matchCity = selectedCity === 'all' || rowCity === selectedCity;
+                    const matchTime = !cutoffDate || rowDate >= cutoffDate;
+
+                    if (matchCity && matchTime) {
                         row.classList.remove('hidden');
                     } else {
                         row.classList.add('hidden');
@@ -518,19 +628,86 @@ app.get('/', (req, res) => {
                 });
                 
                 calculateStats();
+                renderBreakdownMatrix();
+            }
+
+            function renderBreakdownMatrix() {
+                // Group the NON-HIDDEN settled trades by Date -> Strategy -> City
+                const rows = document.querySelectorAll('.trade-row.is-settled:not(.hidden)');
+                const matrix = {};
+
+                rows.forEach(r => {
+                    const status = r.getAttribute('data-status');
+                    if (status !== 'WON' && status !== 'LOST') return;
+                    
+                    const dStr = new Date(r.getAttribute('data-date')).toLocaleDateString();
+                    const strategy = r.getAttribute('data-strategy');
+                    const city = r.getAttribute('data-city');
+
+                    const key = dStr + '|' + strategy + '|' + city;
+                    if (!matrix[key]) {
+                        matrix[key] = { dStr, strategy, city, wins: 0, losses: 0, deployed: 0, returned: 0 };
+                    }
+                    
+                    const shares = parseFloat(r.getAttribute('data-shares')) || 0;
+                    const cost = shares * (parseFloat(r.getAttribute('data-price')) || 0);
+
+                    matrix[key].deployed += cost;
+                    if (status === 'WON') {
+                        matrix[key].wins++;
+                        matrix[key].returned += (shares * 1.0);
+                    } else {
+                        matrix[key].losses++;
+                    }
+                });
+
+                const tbody = document.getElementById('matrix-tbody');
+                const fragment = document.createDocumentFragment();
+
+                Object.values(matrix).sort((a,b) => new Date(b.dStr) - new Date(a.dStr)).forEach(m => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'matrix-row';
+                    
+                    const stratName = m.strategy === 'strategy-1' ? 'OpenMeteo Counter' : (m.strategy === 'strategy-2' ? 'Cheapest NO' : 'NWS Bet');
+                    const cityFmt = m.city.replace(/\\b\\w/g, l => l.toUpperCase());
+                    const tCount = m.wins + m.losses;
+                    const wr = tCount > 0 ? ((m.wins / tCount) * 100).toFixed(1) + '%' : '0%';
+                    const net = m.returned - m.deployed;
+                    
+                    const pnlColor = net >= 0 ? '#10b981' : '#ef4444';
+                    const pnlText = '<span style="color:' + pnlColor + '; font-weight:bold;">' + (net >= 0 ? '+$' : '-$') + Math.abs(net).toFixed(2) + '</span>';
+
+                    tr.innerHTML = \`
+                        <td>\${m.dStr}</td>
+                        <td><span class="badge \${m.strategy}">\${stratName}</span></td>
+                        <td><strong>\${cityFmt}</strong></td>
+                        <td>\${tCount}</td>
+                        <td>\${wr}</td>
+                        <td>$\${m.deployed.toFixed(2)}</td>
+                        <td>\${pnlText}</td>
+                    \`;
+                    fragment.appendChild(tr);
+                });
+
+                tbody.innerHTML = '';
+                tbody.appendChild(fragment);
+                
+                if (Object.keys(matrix).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding: 25px;">No settled trades found for current filters.</td></tr>';
+                }
             }
             
             // Initialization run
             calculateStats();
+            renderBreakdownMatrix();
 
             function sortTable(thElement, colIndex) {
                 const table = thElement.closest('table');
                 const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const rows = Array.from(tbody.querySelectorAll('tr.trade-row:not(.hidden), tr.matrix-row'));
                 const isAsc = thElement.classList.toggle('asc');
                 const direction = isAsc ? 1 : -1;
                 
-                // Reset other siblings
                 const headers = table.querySelectorAll('th');
                 headers.forEach(h => {
                     if(h !== thElement) {
