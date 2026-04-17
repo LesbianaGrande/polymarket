@@ -131,9 +131,23 @@ export class PolymarketService {
              if (market && market.closed) {
                  // Try to figure out winning token or outcome
                  let winningToken = undefined;
-                 let winningOutcome = market.outcome; // Gamma API often returns the winning outcome text
+                 let winningOutcome: string | undefined = undefined;
                  
-                 if (market.tokens && Array.isArray(market.tokens)) {
+                 // Gamma API often returns the winning outcome text via arrays
+                 if (market.outcomes && market.outcomePrices) {
+                     try {
+                         const outcomesArr = JSON.parse(market.outcomes);
+                         const pricesArr = JSON.parse(market.outcomePrices);
+                         for (let i = 0; i < pricesArr.length; i++) {
+                             if (pricesArr[i] === "1" || pricesArr[i] === 1) {
+                                 winningOutcome = outcomesArr[i];
+                                 break;
+                             }
+                         }
+                     } catch(e) {}
+                 }
+                 
+                 if (!winningOutcome && market.tokens && Array.isArray(market.tokens)) {
                      const winner = market.tokens.find((t: any) => t.winner === true || t.winner === 'true');
                      if (winner) winningToken = winner.token_id;
                  }
