@@ -1,38 +1,37 @@
-import express from 'express';
-import { getWallets, getAllTrades, getOpenTrades, getWalletHistory, updateWalletBalance } from './db/database';
-import { BotManager } from './bot/BotManager';
-
-export const app = express();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.app = void 0;
+exports.startServer = startServer;
+const express_1 = __importDefault(require("express"));
+const database_1 = require("./db/database");
+exports.app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
-
-app.get('/health', (req, res) => {
+exports.app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
-
-app.post('/api/replenish', (req, res) => {
-    updateWalletBalance('strategy-1', 10000);
-    updateWalletBalance('strategy-2', 10000);
-    updateWalletBalance('strategy-3', 10000);
+exports.app.post('/api/replenish', (req, res) => {
+    (0, database_1.updateWalletBalance)('strategy-1', 10000);
+    (0, database_1.updateWalletBalance)('strategy-2', 10000);
+    (0, database_1.updateWalletBalance)('strategy-3', 10000);
     res.json({ message: 'Wallets replenished to $10,000' });
 });
-
-app.get('/', (req, res) => {
-    const wallets = getWallets() as any[];
-    const allTrades = getAllTrades() as any[];
-    const walletHistory = getWalletHistory() as any[];
-    
+exports.app.get('/', (req, res) => {
+    const wallets = (0, database_1.getWallets)();
+    const allTrades = (0, database_1.getAllTrades)();
+    const walletHistory = (0, database_1.getWalletHistory)();
     // Group history by wallet
-    const historyByWalletId: Record<string, any[]> = {};
+    const historyByWalletId = {};
     wallets.forEach(w => historyByWalletId[w.id] = []);
     walletHistory.forEach(h => {
         if (historyByWalletId[h.walletId]) {
             historyByWalletId[h.walletId].push(h);
         }
     });
-
-    const openTradesCount = getOpenTrades().length;
+    const openTradesCount = (0, database_1.getOpenTrades)().length;
     const totalTrades = allTrades.length;
-
     let walletsHtml = '';
     for (const w of wallets) {
         walletsHtml += `
@@ -55,44 +54,44 @@ app.get('/', (req, res) => {
     const trades1 = allTrades.filter(t => t.walletId === 'strategy-1');
     const trades2 = allTrades.filter(t => t.walletId === 'strategy-2');
     const trades3 = allTrades.filter(t => t.walletId === 'strategy-3');
-
     // List of cities for dropdown (dynamically deduced or explicit)
-    const cities = ['paris', 'amsterdam', 'berlin', 'london', 'madrid', 'rome', 'moscow', 'tokyo', 'seoul', 'beijing', 
-    'shanghai', 'shenzhen', 'hong kong', 'sydney', 'dubai', 'singapore', 'helsinki', 'ankara', 'sao paulo', 'tel aviv', 
-    'warsaw', 'toronto', 'new york', 'miami', 'chicago', 'los angeles', 'austin', 'phoenix', 'washington', 'philadelphia', 
-    'mexico city', 'milan', 'munich', 'panama city'];
-
-    function getCity(title: string) {
-        if (!title) return 'other';
+    const cities = ['paris', 'amsterdam', 'berlin', 'london', 'madrid', 'rome', 'moscow', 'tokyo', 'seoul', 'beijing',
+        'shanghai', 'shenzhen', 'hong kong', 'sydney', 'dubai', 'singapore', 'helsinki', 'ankara', 'sao paulo', 'tel aviv',
+        'warsaw', 'toronto', 'new york', 'miami', 'chicago', 'los angeles', 'austin', 'phoenix', 'washington', 'philadelphia',
+        'mexico city', 'milan', 'munich', 'panama city'];
+    function getCity(title) {
+        if (!title)
+            return 'other';
         const t = title.toLowerCase();
         for (const c of cities) {
-            if (t.includes(c)) return c;
+            if (t.includes(c))
+                return c;
         }
         return 'other';
     }
-
-    function renderRow(t: any, showForecast: boolean) {
+    function renderRow(t, showForecast) {
         const titleText = t.marketTitle && t.marketTitle !== 'Unknown Title' ? t.marketTitle : t.marketId;
         const statusColor = t.status === 'OPEN' ? '#f59e0b' : (t.status === 'WON' ? '#10b981' : (t.status === 'LOST' ? '#ef4444' : '#64748b'));
         const cityKey = getCity(titleText);
-        
         let pnlText = '';
         if (t.status !== 'OPEN' && t.status !== 'CLOSED') {
-             const cost = t.amount * t.price;
-             let net = 0;
-             if (t.status === 'WON') net = t.amount - cost;
-             if (t.status === 'LOST') net = -cost;
-             pnlText = `<span style="color: ${net >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">${net >= 0 ? '+$' : '-$'}${Math.abs(net).toFixed(3)}</span>`;
-        } else if (t.currentPrice !== undefined && t.currentPrice !== null) {
+            const cost = t.amount * t.price;
+            let net = 0;
+            if (t.status === 'WON')
+                net = t.amount - cost;
+            if (t.status === 'LOST')
+                net = -cost;
+            pnlText = `<span style="color: ${net >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">${net >= 0 ? '+$' : '-$'}${Math.abs(net).toFixed(3)}</span>`;
+        }
+        else if (t.currentPrice !== undefined && t.currentPrice !== null) {
             const diff = (t.currentPrice - t.price) * t.amount;
             const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
             pnlText = `<span style="color: ${diffColor}; font-weight: bold;">${diff >= 0 ? '+$' : '-$'}${Math.abs(diff).toFixed(3)} (Est)</span>`;
-        } else {
+        }
+        else {
             pnlText = `<span style="color: var(--text-muted);">N/A</span>`;
         }
-        
         const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span> <br><span style="font-size:0.8rem; color:var(--text-muted)">Latest: ${t.latestForecastTemp || 'N/A'}</span></td>` : '';
-
         return `
             <tr data-city="${cityKey}" data-date="${t.createdAt}" data-strategy="${t.walletId}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row strat-${t.walletId} ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
@@ -106,7 +105,6 @@ app.get('/', (req, res) => {
             </tr>
         `;
     }
-
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -814,30 +812,28 @@ app.get('/', (req, res) => {
     </body>
     </html>
     `;
-
     res.send(html);
 });
-
-export function startServer(bot: BotManager) {
-    app.post('/api/run-cycle', async (req, res) => {
+function startServer(bot) {
+    exports.app.post('/api/run-cycle', async (req, res) => {
         try {
             await bot.runCycle();
             res.status(200).json({ success: true, message: 'Trade cycle executed manually.' });
-        } catch (e: any) {
+        }
+        catch (e) {
             res.status(500).json({ success: false, error: e.message });
         }
     });
-
-    app.post('/api/resolve', async (req, res) => {
+    exports.app.post('/api/resolve', async (req, res) => {
         try {
             await bot.resolveTrades();
             res.status(200).json({ success: true, message: 'Resolution cycle executed manually.' });
-        } catch (e: any) {
+        }
+        catch (e) {
             res.status(500).json({ success: false, error: e.message });
         }
     });
-
-    app.listen(port, () => {
+    exports.app.listen(port, () => {
         console.log(`[Dashboard] Server running on port ${port}`);
     });
 }
