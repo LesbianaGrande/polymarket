@@ -94,7 +94,7 @@ app.get('/', (req, res) => {
         const forecastTd = showForecast ? `<td><span style="color:#ec4899; font-weight:bold;">${t.forecastTemp || 'N/A'}</span> <br><span style="font-size:0.8rem; color:var(--text-muted)">Latest: ${t.latestForecastTemp || 'N/A'}</span></td>` : '';
 
         return `
-            <tr data-city="${cityKey}" data-date="${t.createdAt}" data-strategy="${t.walletId}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row strat-${t.walletId} ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
+            <tr data-city="${cityKey}" data-title="${titleText.replace(/"/g, '&quot;')}" data-date="${t.createdAt}" data-strategy="${t.walletId}" data-status="${t.status}" data-shares="${t.amount}" data-price="${t.price}" class="trade-row strat-${t.walletId} ${t.status === 'OPEN' ? 'is-open' : 'is-settled'}">
                 <td>${new Date(t.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</td>
                 <td><strong style="color: #475569; font-size:1.05rem;">${titleText}</strong></td>
                 ${forecastTd}
@@ -499,7 +499,7 @@ app.get('/', (req, res) => {
             <table class="sortable" id="matrix-table">
                 <thead>
                     <tr>
-                        <th onclick="sortTable(this, 0)">Execution Date ↕</th>
+                        <th onclick="sortTable(this, 0)">Days Ahead ↕</th>
                         <th onclick="sortTable(this, 1)">Strategy ↕</th>
                         <th onclick="sortTable(this, 2)">City ↕</th>
                         <th onclick="sortTable(this, 3)">Trades Settled ↕</th>
@@ -644,11 +644,30 @@ app.get('/', (req, res) => {
                 const rows = document.querySelectorAll('.trade-row.is-settled:not(.hidden)');
                 const matrix = {};
 
+                function getDaysAhead(title, createdAtStr) {
+                    const match = title.match(/on\s+([A-Za-z]+)\s+(\d+)/i);
+                    if (!match) return 'Unknown';
+                    const cd = new Date(createdAtStr);
+                    let td = new Date(match[1] + ' ' + match[2] + ', ' + cd.getFullYear());
+                    // Account for spanning year transitions
+                    if (cd.getTime() - td.getTime() > 1000 * 60 * 60 * 24 * 180) {
+                        td.setFullYear(cd.getFullYear() + 1);
+                    }
+                    const cMidnight = Date.UTC(cd.getFullYear(), cd.getMonth(), cd.getDate());
+                    const tMidnight = Date.UTC(td.getFullYear(), td.getMonth(), td.getDate());
+                    let diff = Math.round((tMidnight - cMidnight) / (1000 * 60 * 60 * 24));
+                    if (diff < 0) diff = 0;
+                    return diff + 'd';
+                }
+
                 rows.forEach(r => {
                     const status = r.getAttribute('data-status');
                     if (status !== 'WON' && status !== 'LOST' && status !== 'CLOSED') return;
                     
-                    const dStr = new Date(r.getAttribute('data-date')).toLocaleDateString();
+                    const createdAt = r.getAttribute('data-date');
+                    const title = r.getAttribute('data-title') || '';
+                    const dStr = getDaysAhead(title, createdAt);
+                    
                     const strategy = r.getAttribute('data-strategy');
                     const city = r.getAttribute('data-city');
 
@@ -672,7 +691,11 @@ app.get('/', (req, res) => {
                 const tbody = document.getElementById('matrix-tbody');
                 const fragment = document.createDocumentFragment();
 
-                Object.values(matrix).sort((a,b) => new Date(b.dStr) - new Date(a.dStr)).forEach(m => {
+                Object.values(matrix).sort((a,b) => {
+                    const valA = a.dStr === 'Unknown' ? 999 : parseInt(a.dStr);
+                    const valB = b.dStr === 'Unknown' ? 999 : parseInt(b.dStr);
+                    return valA - valB;
+                }).forEach(m => {
                     const tr = document.createElement('tr');
                     tr.className = 'matrix-row';
                     
